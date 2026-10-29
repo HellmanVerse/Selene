@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   ArrowUpRight,
@@ -25,6 +25,7 @@ import {
 import { locations } from "@/lib/locations";
 import type { Analysis, Weights, Match } from "@/lib/types";
 import Profile from "@/components/Profile";
+import { coordinates } from "@/lib/terrain";
 const Globe = dynamic(() => import("@/components/Globe"), { ssr: false });
 const Earth = dynamic(() => import("@/components/GoogleEarth"), { ssr: false });
 const TerrainMesh = dynamic(() => import("@/components/TerrainMesh"), {
@@ -116,6 +117,7 @@ export default function Home() {
     [latInput, setLatInput] = useState("-43.31"),
     [lonInput, setLonInput] = useState("-11.36");
   const [site, setSite] = useState("Tycho"),
+    [locationInput, setLocationInput] = useState("Tycho"),
     [radius, setRadius] = useState(100),
     [mission, setMission] = useState("Terrain reconnaissance"),
     [weights, setWeights] = useState<Weights>(
@@ -127,7 +129,7 @@ export default function Home() {
     [search, setSearch] = useState(""),
     [category, setCategory] = useState("All regions");
   const [analysis, setAnalysis] = useState<Analysis | null>(null),
-    [busy, setBusy] = useState(false),
+    [busy, setBusy] = useState(true),
     [error, setError] = useState(""),
     [selected, setSelected] = useState(0),
     [surface, setSurface] = useState(false);
@@ -136,10 +138,18 @@ export default function Home() {
     request = useRef(0),
     controller = useRef<AbortController | null>(null);
   const candidate = analysis?.candidates[selected];
+  let draft: { lat: number; lon: number } | null = null;
+  try {
+    if (latInput.trim() && lonInput.trim())
+      draft = coordinates(Number(latInput), Number(lonInput));
+  } catch {
+    /* Incomplete coordinate drafts are never sent to the API. */
+  }
   const stale =
     !!analysis &&
-    (Math.abs(analysis.lat - lat) > 1e-8 ||
-      Math.abs(analysis.lon - lon) > 1e-8 ||
+    (!draft ||
+      Math.abs(analysis.lat - draft.lat) > 1e-8 ||
+      Math.abs(analysis.lon - draft.lon) > 1e-8 ||
       analysis.radius !== radius ||
       JSON.stringify(analysis.weights) !== JSON.stringify(weights));
   useEffect(() => {
@@ -148,71 +158,94 @@ export default function Home() {
     } else dialog.current?.close();
   }, [modal]);
   function choose(la: number, lo: number, name = "Custom region") {
-    request.current++;
-    controller.current?.abort();
-    setBusy(false);
     setLat(la);
     setLon(lo);
-    setLatInput(la.toFixed(4));
-    setLonInput(lo.toFixed(4));
+    setLatInput(la.toFixed(5));
+    setLonInput(lo.toFixed(5));
     setSite(name);
+    setLocationInput(name === "Custom region" ? "" : name);
     setError("");
   }
   function locate() {
-    const la = Number(latInput),
-      lo = Number(lonInput);
-    if (
-      !latInput.trim() ||
-      !lonInput.trim() ||
-      !Number.isFinite(la) ||
-      !Number.isFinite(lo) ||
-      la < -90 ||
-      la > 90 ||
-      lo < -180 ||
-      lo > 360
-    ) {
-      setError("Enter latitude −90…90 and longitude −180…360.");
-      return;
-    }
-    choose(la, ((((lo + 180) % 360) + 360) % 360) - 180);
+    void analyze(false);
   }
-  async function analyze() {
-    const id = ++request.current;
-    controller.current?.abort();
-    const abort = new AbortController();
-    controller.current = abort;
+  const analyze = useCallback(
+    async (scrollToResults = false) => {
+      const id = ++request.current;
+      controller.current?.abort();
+      let point: { lat: number; lon: number };
+      try {
+        if (!latInput.trim() || !lonInput.trim())
+          throw new Error("Enter both lunar coordinates.");
+        point = coordinates(Number(latInput), Number(lonInput));
+        if (Object.values(weights).every((value) => value === 0))
+          throw new Error(
+            "Choose at least one positive matching importance, or restore a mission preset.",
+          );
+      } catch (e) {
+        setBusy(false);
+        setError(
+          e instanceof Error ? e.message : "Enter valid lunar coordinates.",
+        );
+        return;
+      }
+      setLat(point.lat);
+      setLon(point.lon);
+      const landmark = locations.find(
+        (p) =>
+          Math.abs(p.lat - point.lat) < 1e-5 &&
+          Math.abs(p.lon - point.lon) < 1e-5,
+      );
+      setSite(landmark?.name ?? "Custom region");
+      const abort = new AbortController();
+      controller.current = abort;
+      setBusy(true);
+      setError("");
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...point, radius, weights }),
+          signal: abort.signal,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        if (id !== request.current) return;
+        setAnalysis(data);
+        setSelected(0);
+        if (scrollToResults)
+          setTimeout(
+            () =>
+              result.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              }),
+            80,
+          );
+      } catch (e) {
+        if (
+          id === request.current &&
+          !(e instanceof DOMException && e.name === "AbortError")
+        )
+          setError(e instanceof Error ? e.message : "Analysis unavailable.");
+      } finally {
+        if (id === request.current) setBusy(false);
+      }
+    },
+    [latInput, lonInput, radius, weights],
+  );
+  useEffect(() => {
     setBusy(true);
     setError("");
-    try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat, lon, radius, weights }),
-        signal: abort.signal,
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      if (id !== request.current) return;
-      setAnalysis(data);
-      setSelected(0);
-      setTimeout(
-        () =>
-          result.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          }),
-        80,
-      );
-    } catch (e) {
-      if (
-        id === request.current &&
-        !(e instanceof DOMException && e.name === "AbortError")
-      )
-        setError(e instanceof Error ? e.message : "Analysis unavailable.");
-    } finally {
-      if (id === request.current) setBusy(false);
-    }
-  }
+    const timer = setTimeout(() => {
+      void analyze(false);
+    }, 650);
+    return () => {
+      clearTimeout(timer);
+      controller.current?.abort();
+      request.current++;
+    };
+  }, [analyze]);
   const filtered = locations.filter(
     (p) =>
       (category === "All regions" || p.category === category) &&
@@ -395,6 +428,49 @@ export default function Home() {
                 </p>
               </div>
             </div>
+            <label className="location-entry">
+              <span>Lunar location</span>
+              <div className="search-box">
+                <Search size={14} />
+                <input
+                  aria-label="Lunar location"
+                  list="lunar-locations"
+                  placeholder="Type a lunar location…"
+                  value={locationInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setLocationInput(value);
+                    const place = locations.find(
+                      (p) =>
+                        p.name.toLowerCase() === value.trim().toLowerCase(),
+                    );
+                    if (place) choose(place.lat, place.lon, place.name);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    const place = locations.find(
+                      (p) =>
+                        p.name.toLowerCase() ===
+                        locationInput.trim().toLowerCase(),
+                    );
+                    if (place) choose(place.lat, place.lon, place.name);
+                    else
+                      setError(
+                        "Choose a lunar location from the suggestions or enter its coordinates below.",
+                      );
+                  }}
+                />
+              </div>
+            </label>
+            <datalist id="lunar-locations">
+              {locations.map((p) => (
+                <option key={p.name} value={p.name} />
+              ))}
+            </datalist>
+            <p className="automatic-hint">
+              Choose a suggested location or enter coordinates. Terrain
+              measurements update automatically.
+            </p>
             <button
               className="library-button"
               onClick={() => setModal("library")}
@@ -418,7 +494,13 @@ export default function Home() {
                   max="90"
                   step="any"
                   value={latInput}
-                  onChange={(e) => setLatInput(e.target.value)}
+                  onChange={(e) => {
+                    setLatInput(e.target.value);
+                    setLocationInput("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") locate();
+                  }}
                 />
               </label>
               <label>
@@ -430,7 +512,13 @@ export default function Home() {
                   max="360"
                   step="any"
                   value={lonInput}
-                  onChange={(e) => setLonInput(e.target.value)}
+                  onChange={(e) => {
+                    setLonInput(e.target.value);
+                    setLocationInput("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") locate();
+                  }}
                 />
               </label>
               <button aria-label="Apply coordinates" onClick={locate}>
@@ -456,54 +544,106 @@ export default function Home() {
           </aside>
           <div className="mission-panel">
             <div className="panel-heading">
-              <span className="mono">DEFINE YOUR MISSION</span>
-              <SlidersHorizontal size={15} />
+              <span className="mono">MEASURED LUNAR TERRAIN</span>
+              <span className="pill">AUTOMATIC</span>
             </div>
             <h2>
-              Different missions.
+              Your location.
               <br />
-              <span>Different matches.</span>
+              <span>Its terrain, measured.</span>
             </h2>
             <p>
-              Weight the terrain characteristics that matter to your research.
+              Slope, relief, roughness, and elevation variation are calculated
+              from NASA elevation data for your selected region.
             </p>
-            <select
-              aria-label="Mission preset"
-              value={mission}
-              onChange={(e) => {
-                const m = e.target.value;
-                setMission(m);
-                if (presets[m]) setWeights(presets[m]);
-              }}
+            <dl
+              className="auto-metrics"
+              aria-label="Measured lunar terrain"
+              aria-busy={busy}
+              aria-live="polite"
             >
-              {Object.keys(presets).map((k) => (
-                <option key={k}>{k}</option>
+              {(
+                [
+                  ["Slope", "slope", "°"],
+                  ["Relief", "relief", "m"],
+                  ["Roughness", "roughness", "m"],
+                  ["Elevation variation", "std", "m"],
+                ] as const
+              ).map(([label, key, unit]) => (
+                <div key={key}>
+                  <dt>{label}</dt>
+                  <dd>
+                    {busy ? (
+                      <span className="measuring">
+                        <LoaderCircle size={11} className="spin" /> Measuring…
+                      </span>
+                    ) : analysis && !stale ? (
+                      <>
+                        {number(analysis.metrics[key], key === "slope" ? 2 : 0)}{" "}
+                        <span>{unit}</span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
               ))}
-              <option>Custom weights</option>
-            </select>
-            <div className="weights">
-              {(Object.keys(weights) as (keyof Weights)[]).map((k) => (
-                <label key={k}>
-                  <span>
-                    {k === "std"
-                      ? "Elevation variation"
-                      : k[0].toUpperCase() + k.slice(1)}
-                    <b className="mono">{weights[k]}</b>
-                  </span>
-                  <input
-                    aria-label={`${k} weight`}
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={weights[k]}
-                    onChange={(e) => {
-                      setMission("Custom weights");
-                      setWeights({ ...weights, [k]: Number(e.target.value) });
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
+            </dl>
+            <p className="automatic-hint">
+              {busy
+                ? "Gathering terrain data for your selection…"
+                : analysis && !stale
+                  ? "Measured automatically · NASA LOLA · 1.895 km grid"
+                  : "Enter a valid location to gather terrain data."}
+            </p>
+            <details className="advanced-mission">
+              <summary>
+                Advanced matching preferences <span>Optional</span>
+                <ChevronDown size={13} />
+              </summary>
+              <p>
+                These settings change the importance of each characteristic when
+                ranking Earth matches. They do not enter or change the measured
+                terrain values.
+              </p>
+              <select
+                aria-label="Mission preset"
+                value={mission}
+                onChange={(e) => {
+                  const m = e.target.value;
+                  setMission(m);
+                  if (presets[m]) setWeights(presets[m]);
+                }}
+              >
+                {Object.keys(presets).map((k) => (
+                  <option key={k}>{k}</option>
+                ))}
+                <option>Custom weights</option>
+              </select>
+              <div className="weights">
+                {(Object.keys(weights) as (keyof Weights)[]).map((k) => (
+                  <label key={k}>
+                    <span>
+                      {k === "std"
+                        ? "Elevation variation"
+                        : k[0].toUpperCase() + k.slice(1)}
+                      <b className="mono">{weights[k]}</b>
+                    </span>
+                    <input
+                      aria-label={`${k} matching importance`}
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={weights[k]}
+                      onChange={(e) => {
+                        setMission("Custom weights");
+                        setWeights({ ...weights, [k]: Number(e.target.value) });
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
+            </details>
           </div>
           <div className="ready-panel">
             <div className="panel-heading">
@@ -538,13 +678,20 @@ export default function Home() {
             </button>
             <div className="analysis-action">
               <p>
-                Measured terrain. Reproducible matches.
+                Terrain data and Earth matches update automatically.
                 <br />
                 No synthetic elevation or invented scores.
               </p>
               <button
                 className="button primary"
-                onClick={analyze}
+                onClick={() => {
+                  if (analysis && !stale)
+                    result.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  else void analyze(true);
+                }}
                 disabled={busy || Object.values(weights).every((v) => v === 0)}
               >
                 {busy ? (
@@ -554,7 +701,7 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    Find Earth analogs <ArrowRight size={17} />
+                    View Earth analogs <ArrowRight size={17} />
                   </>
                 )}
               </button>
@@ -598,10 +745,12 @@ export default function Home() {
             </div>
             {stale && (
               <div className="stale">
-                <Info size={15} /> Selection or mission weights changed. These
-                results describe the previous analysis.
-                <button onClick={analyze}>
-                  Run new analysis <ArrowRight size={13} />
+                <Info size={15} />{" "}
+                {busy
+                  ? "Updating terrain measurements and Earth matches for your selection…"
+                  : "These results describe the previous selection. Current measurements are unavailable until the new analysis succeeds."}
+                <button onClick={() => void analyze(false)} disabled={busy}>
+                  Retry analysis <ArrowRight size={13} />
                 </button>
               </div>
             )}

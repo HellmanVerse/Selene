@@ -2217,3 +2217,94 @@ td:not(:first-child) {
     color: #111;
   }
 }
+/* Location-driven measurements and optional ranking preferences. */
+.location-entry {
+  display: block;
+  color: #999;
+  font-size: 10px;
+  margin: 20px 0 0;
+}
+.location-entry .search-box {
+  margin-top: 8px;
+  padding: 10px;
+}
+.location-entry .search-box input {
+  font-size: 11px;
+}
+.automatic-hint {
+  color: #838383;
+  font-size: 9px !important;
+  line-height: 1.7;
+  margin: 10px 0 16px !important;
+}
+.auto-metrics {
+  margin-top: 22px;
+}
+.auto-metrics > div {
+  border-bottom: 1px solid var(--line);
+  padding: 13px 0;
+}
+.auto-metrics dt {
+  color: #a0a0a0;
+  font-size: 11px;
+}
+.auto-metrics dd {
+  color: var(--ink);
+  font-size: 16px;
+}
+.auto-metrics dd > span:not(.measuring) {
+  color: #888;
+  font-size: 10px;
+}
+.measuring {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #999;
+  font-size: 10px;
+}
+.advanced-mission {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 20px;
+}
+.advanced-mission summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  list-style: none;
+  color: #bbb;
+}
+.advanced-mission summary > span {
+  margin-left: auto;
+  color: #777;
+  font-size: 8px;
+}
+.advanced-mission > p {
+  font-size: 10px;
+  margin: 15px 0;
+}
+.advanced-mission > select {
+  width: 100%;
+  font-size: 10px;
+}
+.advanced-mission .weights {
+  margin-bottom: 10px;
+}
+@media (max-width: 720px) {
+  .location-entry,
+  .auto-metrics dt {
+    font-size: 12px;
+  }
+  .location-entry .search-box input {
+    font-size: 12px;
+  }
+  .automatic-hint {
+    font-size: 10px !important;
+  }
+  .advanced-mission summary {
+    font-size: 11px;
+  }
+}
