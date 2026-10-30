@@ -109,7 +109,7 @@ function save(content: string, name: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function kml(c: Match) {
-  return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>TerraMatch Earth candidate</name><Placemark><name>${c.name.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</name><LookAt><longitude>${c.lon}</longitude><latitude>${c.lat}</latitude><range>150000</range><tilt>65</tilt><heading>0</heading></LookAt><Point><coordinates>${c.lon},${c.lat},0</coordinates></Point></Placemark></Document></kml>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Torsion Earth candidate</name><Placemark><name>${c.name.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</name><LookAt><longitude>${c.lon}</longitude><latitude>${c.lat}</latitude><range>150000</range><tilt>65</tilt><heading>0</heading></LookAt><Point><coordinates>${c.lon},${c.lat},0</coordinates></Point></Placemark></Document></kml>`;
 }
 export default function Home() {
   const [lat, setLat] = useState(-43.31),
@@ -265,7 +265,7 @@ export default function Home() {
           null,
           2,
         ),
-        "terramatch-report.json",
+        "torsion-report.json",
         "application/json",
       );
     if (format === "csv") {
@@ -289,14 +289,14 @@ export default function Home() {
                 `${k},${k.toLowerCase().includes("slope") ? "degrees" : "meters"},${analysis.metrics[k]},${analysis.comparison[k]},${candidate?.metrics[String(analysis.radius)][k] ?? ""}`,
             )
             .join("\n"),
-        "terramatch-comparison.csv",
+        "torsion-comparison.csv",
         "text/csv",
       );
     }
     if (format === "kml" && candidate)
       save(
         kml(candidate),
-        "terramatch-earth-candidate.kml",
+        "torsion-earth-candidate.kml",
         "application/vnd.google-earth.kml+xml",
       );
     if (format === "print") {
@@ -311,7 +311,7 @@ export default function Home() {
           <span className="brand-mark">
             <Orbit size={22} />
           </span>
-          TerraMatch<span className="brand-tag mono">LUNAR</span>
+          Torsion<span className="brand-tag mono">LUNAR</span>
         </a>
         <nav>
           <a href="#explore">Explorer</a>
@@ -339,18 +339,12 @@ export default function Home() {
           </div>
           <div className="hero">
             <div className="hero-copy">
-              <div className="edition mono">
-                ONE MOON. A WORLD OF POSSIBILITIES.
-              </div>
               <h1>
                 Another world.
                 <br />
                 <span>Closer to home.</span>
               </h1>
-              <p>
-                Find Earth’s closest terrain analogs to the Moon. Start with a
-                place. Follow the science.
-              </p>
+              <p>Find Earth’s closest terrain analogs to the Moon.</p>
               <button
                 className="button primary hero-cta"
                 onClick={() =>
@@ -705,9 +699,6 @@ export default function Home() {
                   </>
                 )}
               </button>
-              <span className="mono">
-                REGIONAL RECONNAISSANCE · NOT LANDING CERTIFICATION
-              </span>
             </div>
           </div>
         </section>
@@ -905,11 +896,6 @@ export default function Home() {
                     );
                   })}
                 </div>
-                <p className="small-note">
-                  For regional slope screening only. This resolution cannot
-                  support rover path planning, boulder detection, or landing
-                  hazard assessment.
-                </p>
               </div>
             </div>
             <details className="limitations">
@@ -941,8 +927,8 @@ export default function Home() {
               </h2>
               <p>
                 From impact basins to volcanic plains, Earth holds terrain that
-                can help us understand the Moon. TerraMatch makes those
-                connections measurable—and their limitations visible.
+                can help us understand the Moon. Torsion makes those connections
+                measurable—and their limitations visible.
               </p>
             </div>
             <div className="principles">
@@ -980,9 +966,9 @@ export default function Home() {
       <footer>
         <a className="brand" href="#">
           <Orbit size={20} />
-          TerraMatch
+          Torsion
         </a>
-        <span className="mono">MADE FOR THE NEXT FRONTIER.</span>
+
         <div>
           <button onClick={() => setModal("sources")}>
             Sources & limitations <ArrowUpRight size={12} />
@@ -991,11 +977,6 @@ export default function Home() {
             Source code <ArrowUpRight size={12} />
           </a>
         </div>
-        <p>
-          Independent research tool. NASA imagery and data do not imply NASA
-          endorsement. Earth texture: NASA Blue Marble via Three.js. © Mapzen,
-          OpenStreetMap, and other terrain data providers.
-        </p>
       </footer>
       <dialog
         ref={dialog}
@@ -1008,7 +989,7 @@ export default function Home() {
         <div className="dialog-inner">
           <div className="dialog-header">
             <span className="eyebrow mono">
-              TERRAMATCH /{" "}
+              TORSION /{" "}
               {modal === "library"
                 ? "LOCATION LIBRARY"
                 : modal === "sources"
@@ -1165,7 +1146,7 @@ export default function Home() {
             <>
               <h2>Evidence over intuition.</h2>
               <p>
-                TerraMatch uses a deterministic terrain comparison. Numerical
+                Torsion uses a deterministic terrain comparison. Numerical
                 scores are calculated from data, never generated by a language
                 model.
               </p>
@@ -1226,7 +1207,7 @@ export default function Home() {
           )}
           {modal === "compare" && analysis && candidate && (
             <>
-              <h2>Two places. One comparison.</h2>
+              <h2>Comparison</h2>
               <p>
                 Lunar region {analysis.lat.toFixed(3)}°,{" "}
                 {analysis.lon.toFixed(3)}° ↔ {candidate.name}. Both comparison

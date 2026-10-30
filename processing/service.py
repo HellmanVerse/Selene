@@ -15,7 +15,7 @@ from pyproj import CRS, Transformer
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-app=FastAPI(title='TerraMatch verified lunar COG analysis')
+app=FastAPI(title='Torsion verified lunar COG analysis')
 MOON='+proj=longlat +R=1737400 +no_defs'
 CATALOG_PATH=Path(os.environ.get('COG_CATALOG',Path(__file__).with_name('catalog.example.json')))
 

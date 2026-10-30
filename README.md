@@ -1,8 +1,8 @@
-# TerraMatch / Selene
+# Torsion / Selene
 
 A lunar-only Next.js + TypeScript terrain explorer. Its monochrome interface uses Geist typography and takes visual cues from Vercel Ship. The interactive lunar globe uses NASA SVS LROC imagery. Terrain measurements come from genuine NASA LOLA LDEM_16 data; a deterministic engine compares them to 632 measured Earth regions.
 
-Enter a suggested lunar place name, type coordinates, or select the globe. After a short typing pause, TerraMatch automatically gathers elevation data, calculates slope, relief, roughness and elevation variation, and refreshes Earth analogs. No terrain values are entered by the user. Optional mission weighting is tucked under **Advanced matching preferences** and changes only ranking importance. New selections cancel outdated requests, invalid coordinates show no current measurements, and automatic updates do not move the page away from the input fields.
+Enter a suggested lunar place name, type coordinates, or select the globe. After a short typing pause, Torsion automatically gathers elevation data, calculates slope, relief, roughness and elevation variation, and refreshes Earth analogs. No terrain values are entered by the user. Optional mission weighting is tucked under **Advanced matching preferences** and changes only ranking importance. New selections cancel outdated requests, invalid coordinates show no current measurements, and automatic updates do not move the page away from the input fields.
 
 ## Run
 

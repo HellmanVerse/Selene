@@ -1,4 +1,4 @@
-name: Validate TerraMatch
+name: Validate Torsion
 on: [push, pull_request]
 permissions:
   contents: read
