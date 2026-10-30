@@ -332,9 +332,7 @@ export default function Home() {
       <main>
         <section className="intro" id="explore">
           <div className="section-meta mono">
-            <span>
-              <i className="status-dot" /> LUNAR TERRAIN INTELLIGENCE
-            </span>
+            <span aria-hidden="true" />
             <span>01 / EXPLORE THE MOON</span>
           </div>
           <div className="hero">
