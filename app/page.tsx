@@ -812,6 +812,14 @@ export default function Home() {
                     lat={candidate.lat}
                     lon={candidate.lon}
                     name={candidate.name}
+                    elevation={
+                      candidate.metrics[String(analysis.radius)].profile[
+                        Math.floor(
+                          candidate.metrics[String(analysis.radius)].profile
+                            .length / 2,
+                        )
+                      ]
+                    }
                   />
                   <div className="earth-caption">
                     <div>

@@ -12,9 +12,7 @@ type Marker3D = HTMLElement & {
 };
 type GoogleAPI = {
   maps: {
-    importLibrary: (
-      name: string,
-    ) => Promise<{
+    importLibrary: (name: string) => Promise<{
       Map3DElement: new (options: unknown) => Map3D;
       Marker3DElement: new (options: unknown) => Marker3D;
     }>;
@@ -29,18 +27,20 @@ export default function GoogleEarth({
   lat,
   lon,
   name,
+  elevation = 0,
 }: {
   lat: number;
   lon: number;
   name: string;
+  elevation?: number;
 }) {
   const host = useRef<HTMLDivElement>(null),
     map = useRef<Map3D | null>(null),
     [failed, setFailed] = useState(false),
     [ready, setReady] = useState(false),
     marker = useRef<Marker3D | null>(null);
-  const selection = useRef({ lat, lon, name });
-  selection.current = { lat, lon, name };
+  const selection = useRef({ lat, lon, name, elevation });
+  selection.current = { lat, lon, name, elevation };
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   useEffect(() => {
     if (!key) return;
@@ -59,9 +59,13 @@ export default function GoogleEarth({
       const lib = await window.google!.maps.importLibrary("maps3d");
       if (disposed || !host.current) return;
       map.current = new lib.Map3DElement({
-        center: { lat: selection.current.lat, lng: selection.current.lon },
-        range: 1500,
-        tilt: 65,
+        center: {
+          lat: selection.current.lat,
+          lng: selection.current.lon,
+          altitude: Math.max(0, selection.current.elevation) + 300,
+        },
+        range: 5000,
+        tilt: 45,
         heading: 0,
         mode: "HYBRID",
         gestureHandling: "GREEDY",
@@ -98,14 +102,18 @@ export default function GoogleEarth({
     map.current?.stopCameraAnimation();
     map.current?.flyCameraTo({
       endCamera: {
-        center: { lat: selection.current.lat, lng: selection.current.lon },
-        range: 1500,
-        tilt: 65,
+        center: {
+          lat: selection.current.lat,
+          lng: selection.current.lon,
+          altitude: Math.max(0, selection.current.elevation) + 300,
+        },
+        range: 5000,
+        tilt: 45,
         heading: 0,
       },
       durationMillis: 2200,
     });
-  }, [lat, lon, name, ready, failed]);
+  }, [lat, lon, name, elevation, ready, failed]);
   if (!key || failed)
     return (
       <>
@@ -157,9 +165,13 @@ export default function GoogleEarth({
             onClick={() =>
               map.current?.flyCameraTo({
                 endCamera: {
-                  center: { lat, lng: lon },
-                  range: 1500,
-                  tilt: 65,
+                  center: {
+                    lat,
+                    lng: lon,
+                    altitude: Math.max(0, elevation) + 300,
+                  },
+                  range: 5000,
+                  tilt: 45,
                   heading: 0,
                 },
                 durationMillis: 1200,
