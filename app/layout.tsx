@@ -3,7 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "Torsion — From the Moon. Back to Earth.",
+  title: "Torsion",
   description:
     "Explore the Moon and Mars, measure NASA terrain, and discover reproducible Earth analog candidates.",
 };
