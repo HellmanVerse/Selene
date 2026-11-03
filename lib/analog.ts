@@ -1,5 +1,10 @@
 import type { Match } from "./types";
 import { marsLocations } from "./mars-locations";
+import {
+  planetaryConditions,
+  earthConditions,
+  type Condition,
+} from "./planet-conditions";
 
 export const factorLabels = {
   terrain: "Terrain shape",
@@ -16,19 +21,20 @@ export const factorLabels = {
 export type Factor = keyof typeof factorLabels;
 export type AnalogWeights = Record<Factor, number>;
 export const defaultAnalogWeights: AnalogWeights = {
-  terrain: 60,
-  geology: 20,
-  temperature: 0,
-  water: 10,
+  terrain: 70,
+  geology: 12,
+  temperature: 8,
+  water: 2,
   dust: 5,
-  biology: 5,
+  biology: 0,
   subsurface: 0,
   operations: 0,
   illumination: 0,
-  environment: 0,
+  environment: 3,
 };
-export type Evidence = { text: string; traits: string[]; source: string };
+export type Evidence = Condition;
 export type SiteEvidence = {
+  baselineFactors?: Partial<Record<Factor, Evidence>>;
   name: string;
   factors: Partial<Record<Factor, Evidence>>;
   use: string;
@@ -38,7 +44,7 @@ const evidence = (
   text: string,
   traits: string[],
   source: string,
-): Evidence => ({ text, traits, source });
+): Evidence => ({ text, traits, source, scope: "regional" });
 const gallery = "https://science.nasa.gov/solar-system/analog-explorer/";
 const iceSource =
   "https://www.nasa.gov/centers-and-facilities/jpl/where-should-future-astronauts-land-on-mars-follow-the-water/";
@@ -214,7 +220,7 @@ const earthEvidence: Record<string, SiteEvidence> = {
     factors: {
       temperature: evidence(
         "Hyperaridity provides an environmental stress analog, but no temperature time series is compared.",
-        ["hyperarid"],
+        ["hyperarid", "dry"],
         "https://astrobiology.nasa.gov/research-locations/",
       ),
       biology: evidence(
@@ -266,6 +272,11 @@ const earthEvidence: Record<string, SiteEvidence> = {
   "Haughton impact structure": {
     name: "Haughton impact structure",
     factors: {
+      temperature: evidence(
+        "A cold polar desert provides a regional cold-and-dry field context. No temperature time series is matched here.",
+        ["cold", "dry"],
+        "https://www.nasa.gov/wp-content/uploads/2015/06/563511main_nasa-analog-missions-06-2011_508.pdf",
+      ),
       geology: evidence(
         "An impact structure in a polar desert supports impact-geology field comparisons.",
         ["impact"],
@@ -298,7 +309,7 @@ export function targetEvidence(
           );
         })
       : undefined;
-  return site
+  const local: SiteEvidence = site
     ? marsEvidence[site.name]
     : {
         name: `${body === "mars" ? "Mars" : "Moon"} · ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`,
@@ -307,9 +318,26 @@ export function targetEvidence(
         limits:
           "This coordinate has no curated geological coverage in the current evidence catalog. Landmark proximity does not establish local mineralogy, ice or caves.",
       };
+  const baseline = planetaryConditions[body];
+  return {
+    ...local,
+    baselineFactors: baseline,
+    factors: { ...baseline, ...local.factors },
+  };
 }
 export function earthSiteEvidence(candidate: Match): SiteEvidence | undefined {
-  return candidate.catalog ? earthEvidence[candidate.name] : undefined;
+  const local = candidate.catalog ? earthEvidence[candidate.name] : undefined;
+  return {
+    name: candidate.name,
+    factors: { ...earthConditions, ...local?.factors },
+    baselineFactors: earthConditions,
+    use:
+      local?.use ??
+      "Planet-wide Earth context; local geology and climate have not been registered.",
+    limits:
+      local?.limits ??
+      "Planet-wide conditions do not establish local rock type, climate or resources.",
+  };
 }
 export function validateAnalogWeights(value: unknown): AnalogWeights {
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -321,8 +349,8 @@ export function validateAnalogWeights(value: unknown): AnalogWeights {
       throw Error("Choose analog weights between 0 and 100.");
     result[key] = v;
   }
-  // The outer split is fixed; input priorities only divide the other 40%.
-  result.terrain = 60;
+  // The outer split is fixed; priorities divide only the conditions share.
+  result.terrain = 70;
   return result;
 }
 export type FactorResult = {
@@ -352,7 +380,11 @@ export function weightAnalogs(
         const score =
           key === "terrain"
             ? candidate.profileSimilarity
-            : a && b
+            : a &&
+                b &&
+                a.comparable !== false &&
+                b.comparable !== false &&
+                a.traits.length > 0
               ? (100 * shared.length) / a.traits.length
               : null;
         return {
@@ -361,9 +393,9 @@ export function weightAnalogs(
           shared,
           contribution:
             key === "terrain"
-              ? 0.6 * (score ?? 0)
+              ? 0.7 * (score ?? 0)
               : otherTotal > 0
-                ? (0.4 * weights[key] * (score ?? 0)) / otherTotal
+                ? (0.3 * weights[key] * (score ?? 0)) / otherTotal
                 : 0,
         };
       });
@@ -374,9 +406,9 @@ export function weightAnalogs(
         analog: {
           factors,
           coverage:
-            60 +
+            70 +
             (otherTotal > 0
-              ? (40 *
+              ? (30 *
                   factors.reduce(
                     (s, f) =>
                       s +

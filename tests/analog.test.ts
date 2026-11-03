@@ -50,18 +50,23 @@ test("geology priority rewards documented volcanic process while biology rewards
   assert.equal(biosignatures[0].name, "Atacama Desert");
   assert.equal(biosignatures[0].score, 100);
 });
-test("missing evidence earns no credit, reports coverage, and is never filled from latitude", () => {
+test("planetary fallback supplies context without inventing local Earth geology", () => {
   const target = targetEvidence("mars", 0, 0);
-  assert.deepEqual(target.factors, {});
-  const a = weightAnalogs(ranked(), target, defaultAnalogWeights);
-  assert.equal(a[0].score, 60);
-  assert.equal(a[0].analog?.coverage, 60);
+  assert.equal(target.factors.geology?.scope, "planetary");
+  const a = weightAnalogs(
+    ranked().filter((c) => !c.catalog),
+    target,
+    only("geology"),
+  );
+  assert.equal(a[0].score, 70);
+  assert.equal(a[0].analog?.coverage, 70);
+  assert.equal(a[0].analog?.earth?.factors.geology, undefined);
   const b = weightAnalogs(
     ranked(),
     targetEvidence("mars", -8.35, -120.1),
     only("subsurface"),
   );
-  assert.ok(b.every((c) => c.score === 60 && c.analog?.coverage === 60));
+  assert.ok(b.every((c) => c.score === 70 && c.analog?.coverage === 70));
 });
 test("shape share stays fixed and inputs reject invalid weights", () => {
   const a = ranked();
@@ -71,7 +76,7 @@ test("shape share stays fixed and inputs reject invalid weights", () => {
     only("terrain"),
   );
   assert.deepEqual(
-    a.map((c) => [c.name, c.profileSimilarity * 0.6]),
+    a.map((c) => [c.name, c.profileSimilarity * 0.7]),
     b.map((c) => [c.name, c.score]),
   );
   for (const value of [
@@ -87,9 +92,9 @@ test("shape share stays fixed and inputs reject invalid weights", () => {
     validateAnalogWeights(defaultAnalogWeights),
     defaultAnalogWeights,
   );
-  assert.equal(validateAnalogWeights(only("geology")).terrain, 60);
+  assert.equal(validateAnalogWeights(only("geology")).terrain, 70);
 });
-test("shape is exactly 60 percent and other priorities only divide the remaining 40 percent", () => {
+test("shape is exactly 70 percent and conditions divide the remaining 30 percent", () => {
   const matches = ranked().map((c) => ({
     ...c,
     score: 100,
@@ -98,19 +103,19 @@ test("shape is exactly 60 percent and other priorities only divide the remaining
   const target = targetEvidence("mars", 18.65, -133.8);
   const a = weightAnalogs(matches, target, only("geology"));
   assert.equal(a[0].name, "Mauna Kea");
-  assert.equal(a[0].score, 52);
+  assert.equal(a[0].score, 44);
   assert.equal(
     a[0].analog?.factors.find((f) => f.key === "terrain")?.contribution,
-    12,
+    14,
   );
   assert.equal(
     a[0].analog?.factors.find((f) => f.key === "geology")?.contribution,
-    40,
+    30,
   );
   const zeros = Object.fromEntries(
     Object.keys(defaultAnalogWeights).map((k) => [k, 0]),
   ) as typeof defaultAnalogWeights;
-  assert.ok(weightAnalogs(matches, target, zeros).every((c) => c.score === 12));
+  assert.ok(weightAnalogs(matches, target, zeros).every((c) => c.score === 14));
 });
 test("Mars evidence normalizes longitudes and does not assign skylights to arbitrary coordinates", () => {
   assert.equal(targetEvidence("mars", 18.65, 226.2).name, "Olympus Mons");

@@ -2417,3 +2417,17 @@ td:not(:first-child) {
   color: #d1ff72;
   font-size: 13px;
 }
+.condition-scope {
+  display: block;
+  color: #999;
+  margin: 10px 0;
+  font-size: 11px;
+}
+.planet-baseline {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #292929;
+}
+.planet-baseline small {
+  color: #aaa;
+}

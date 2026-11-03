@@ -45,6 +45,21 @@ const presets: Record<string, Weights> = {
 };
 const sourceLinks = [
   [
+    "NASA Moon facts",
+    "Planetary baseline conditions · active",
+    "https://science.nasa.gov/moon/facts/",
+  ],
+  [
+    "NASA Mars facts",
+    "Planetary baseline conditions · active",
+    "https://science.nasa.gov/mars/facts/",
+  ],
+  [
+    "NASA Earth facts",
+    "Earth-wide comparison context · active",
+    "https://science.nasa.gov/earth/facts/",
+  ],
+  [
     "NASA LOLA",
     "Global elevation · active",
     "https://pds-geosciences.wustl.edu/missions/lro/lola.htm",
@@ -166,9 +181,7 @@ export default function Home() {
       Math.abs(analysis.lon - draft.lon) > 1e-8 ||
       analysis.radius !== radius ||
       JSON.stringify(analysis.weights) !== JSON.stringify(weights) ||
-      (mars &&
-        JSON.stringify(analysis.analogWeights) !==
-          JSON.stringify(analogWeights)));
+      JSON.stringify(analysis.analogWeights) !== JSON.stringify(analogWeights));
   useEffect(() => {
     if (modal) {
       dialog.current?.showModal();
@@ -285,7 +298,7 @@ export default function Home() {
             ...analysis,
             sources: sourceLinks,
             method:
-              "metrics-v3; 10 km comparison; Mars overall = 0.6 * profile shape similarity + 0.4 * weighted other-factor evidence; missing evidence contributes zero; non-terrain traits use cited regional context",
+              "metrics-v3; 10 km comparison; Mars overall = 0.7 * profile shape similarity + 0.3 * weighted conditions (both Moon and Mars); missing evidence contributes zero; non-terrain traits use cited regional context",
           },
           null,
           2,
@@ -649,59 +662,6 @@ export default function Home() {
                   ? `Measured automatically · NASA ${mars ? "MOLA · 3.705" : "LOLA · 1.895"} km grid`
                   : "Enter a valid location to gather terrain data."}
             </p>
-            {!mars && (
-              <details className="advanced-mission">
-                <summary>
-                  Advanced matching preferences <span>Optional</span>
-                  <ChevronDown size={13} />
-                </summary>
-                <p>
-                  These settings change the importance of each characteristic
-                  when ranking Earth matches. They do not enter or change the
-                  measured terrain values.
-                </p>
-                <select
-                  aria-label="Mission preset"
-                  value={mission}
-                  onChange={(e) => {
-                    const m = e.target.value;
-                    setMission(m);
-                    if (presets[m]) setWeights(presets[m]);
-                  }}
-                >
-                  {Object.keys(presets).map((k) => (
-                    <option key={k}>{k}</option>
-                  ))}
-                  <option>Custom weights</option>
-                </select>
-                <div className="weights">
-                  {(Object.keys(weights) as (keyof Weights)[]).map((k) => (
-                    <label key={k}>
-                      <span>
-                        {k === "std"
-                          ? "Elevation variation"
-                          : k[0].toUpperCase() + k.slice(1)}
-                        <b className="mono">{weights[k]}</b>
-                      </span>
-                      <input
-                        aria-label={`${k} matching importance`}
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={weights[k]}
-                        onChange={(e) => {
-                          setMission("Custom weights");
-                          setWeights({
-                            ...weights,
-                            [k]: Number(e.target.value),
-                          });
-                        }}
-                      />
-                    </label>
-                  ))}
-                </div>
-              </details>
-            )}
           </div>
           <div className="ready-panel">
             <div className="panel-heading">
@@ -789,10 +749,9 @@ export default function Home() {
                 </div>
                 <h2>Earth, through a {mars ? "Martian" : "lunar"} lens.</h2>
                 <p>
-                  {analysis.candidateCount} regions screened.{" "}
-                  {mars
-                    ? "Ranked by your terrain and location-evidence priorities. Evidence coverage is shown for each result."
-                    : "Ranked by measured topography at a shared 10 km spacing."}
+                  {analysis.candidateCount} regions screened. Ranked by 70%
+                  shape and 30% conditions, using planetary defaults when
+                  regional evidence is missing.
                 </p>
               </div>
               <button
@@ -836,9 +795,7 @@ export default function Home() {
               <div className="candidate-list">
                 <div className="panel-heading">
                   <span className="mono">TOP EARTH CANDIDATES</span>
-                  <span className="mono">
-                    {mars ? "WEIGHTED ANALOGS" : "MORPHOLOGY"}
-                  </span>
+                  <span className="mono">WEIGHTED ANALOGS</span>
                 </div>
                 {analysis.candidates.map((c, i) => (
                   <button
@@ -1292,35 +1249,36 @@ export default function Home() {
                   cached.
                 </li>
                 <li>
-                  <b>Rank and explain.</b> Four parameter similarities are
-                  weighted by your mission settings. The score is a similarity
-                  index, not a confidence level.
+                  <b>Rank and explain.</b> Shape contributes 70%; condition
+                  priorities divide the other 30%. Planetary baselines fill
+                  missing regional context. The score is a similarity index, not
+                  a confidence level.
                 </li>
               </ol>
               <div className="formula mono">
                 sᵢ = 100 × exp(−|earthᵢ − moonᵢ| / scaleᵢ)
                 <br />
-                {mars
-                  ? "score = 0.6 × profile shape similarity + 0.4 × other-factor evidence"
-                  : "score = 0.5 × regional similarity + 0.5 × profile similarity"}
+                score = 0.7 × profile shape similarity + 0.3 × conditions
               </div>
-              {mars && (
+              {
                 <p>
-                  Mars overall ranking uses 60% profile shape similarity + 40%
+                  Overall ranking uses 70% profile shape similarity + 30%
                   weighted other-factor evidence. Priorities divide only the
-                  other 40%. Non-terrain evidence scores count documented shared
-                  traits from cited regional literature. Missing evidence
-                  contributes zero, and the result shows the fraction of
-                  requested importance supported by evidence. This favors
-                  documented candidates, so a low score can indicate missing
-                  research rather than a poor physical analog.
+                  conditions’ 30%. Conditions use planetary baselines where
+                  regional evidence is missing, with documented shared traits
+                  from cited regional literature. Missing evidence contributes
+                  zero, and the result shows the fraction of requested
+                  importance supported by evidence. This favors documented
+                  candidates, so a low score can indicate missing research
+                  rather than a poor physical analog.
                 </p>
-              )}
+              }
               <p>
                 Reference scales: slope 3°, relief 3,000 m, roughness 600 m,
                 elevation standard deviation 1,000 m. These are transparent
                 heuristic scales, not empirically calibrated mission thresholds.
-                Preset weights are editable research preferences.
+                These regional metric similarities are diagnostic; overall
+                ranking uses the separate 70/30 shape–conditions model.
               </p>
               <p>
                 Terrestrial gravity, atmosphere, radiation, temperature,
@@ -1460,8 +1418,8 @@ export default function Home() {
                           <td>{factorLabels[f.key]}</td>
                           <td>
                             {f.key === "terrain"
-                              ? "60% fixed"
-                              : `${analysis.analogWeights?.[f.key] ?? 0} within other 40%`}
+                              ? "70% fixed"
+                              : `${analysis.analogWeights?.[f.key] ?? 0} within conditions’ 30%`}
                           </td>
                           <td>
                             {f.score === null
@@ -1499,7 +1457,7 @@ export default function Home() {
                         {candidate.similarity[k].toFixed(1)} / 100
                       </strong>
                       <small>
-                        Weight {analysis.weights[k]} · signed difference{" "}
+                        Diagnostic difference{" "}
                         {number(candidate.differences[k], 2)}{" "}
                         {k === "slope" ? "°" : "m"}
                       </small>
@@ -1511,9 +1469,8 @@ export default function Home() {
                 Absolute lunar and terrestrial elevations use different datums
                 and are mean-centered in the graph. Absolute elevation does not
                 contribute to the score; the measured profile shape does.
-                {mars
-                  ? "Other factors contribute only where cited regional evidence is registered on both sides."
-                  : "Environmental and material similarity: unavailable."}
+                Conditions use sourced planetary defaults and regional evidence
+                where available.
               </p>
               <button
                 className="button primary"

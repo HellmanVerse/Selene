@@ -48,12 +48,10 @@ export default function AnalogEvidence({
   busy: boolean;
 }) {
   const context = analysis?.targetEvidence ?? targetEvidence(body, lat, lon);
+  const bodyName = body === "mars" ? "Mars" : "Moon";
   const keys = Object.keys(factorLabels) as Factor[];
   const available = keys.filter(
-    (key) =>
-      key === "terrain" ||
-      (!!context.factors[key] &&
-        (!candidate || !!candidate.analog?.earth?.factors[key])),
+    (key) => key === "terrain" || !!context.factors[key],
   );
   const unavailable = keys.filter((key) => !available.includes(key));
   const otherTotal = keys.reduce(
@@ -61,7 +59,7 @@ export default function AnalogEvidence({
     0,
   );
   const control = (key: Factor) =>
-    body === "mars" && key !== "terrain" ? (
+    key !== "terrain" ? (
       <label className="factor-weight">
         Priority within other factors <output>{weights[key]}</output>
         <input
@@ -73,13 +71,13 @@ export default function AnalogEvidence({
           onChange={(e) =>
             onWeights({
               ...weights,
-              terrain: 60,
+              terrain: 70,
               [key]: Number(e.target.value),
             })
           }
         />
         <small>
-          {otherTotal > 0 ? ((40 * weights[key]) / otherTotal).toFixed(1) : "0"}
+          {otherTotal > 0 ? ((30 * weights[key]) / otherTotal).toFixed(1) : "0"}
           % of the overall score
         </small>
       </label>
@@ -94,13 +92,13 @@ export default function AnalogEvidence({
         LOCATION EVIDENCE / EARTH ANALOG PRIORITIES
       </div>
       <h2 id="analog-heading">Analog factors</h2>
-      {body === "mars" && (
+      {
         <>
           <p>
-            <strong>60% terrain shape · 40% other factors.</strong> Shape uses
-            the mean-centered profile comparison. Adjust the priorities below to
-            divide the other 40%. Missing factors earn no credit; their share
-            stays within the 40% and is never transferred to shape.
+            <strong>70% terrain shape · 30% conditions.</strong> Shape uses the
+            mean-centered profile comparison. Adjust the priorities below to
+            divide the conditions’ 30%. Missing factors earn no credit; their
+            share stays within the 30% and is never transferred to shape.
           </p>
           <button
             className="text-button"
@@ -110,8 +108,8 @@ export default function AnalogEvidence({
           </button>
           {otherTotal === 0 && (
             <p>
-              Other-factor priorities are all zero. Shape still contributes 60%;
-              the remaining 40% is unallocated.
+              Other-factor priorities are all zero. Shape still contributes 70%;
+              the remaining 30% is unallocated.
             </p>
           )}
           {candidate?.analog && (
@@ -122,7 +120,7 @@ export default function AnalogEvidence({
             </p>
           )}
         </>
-      )}
+      }
       <div className="evidence-grid">
         {available.map((key) => {
           const target = context.factors[key],
@@ -131,11 +129,16 @@ export default function AnalogEvidence({
           return (
             <article key={key}>
               <h3>{factorLabels[key]}</h3>
+              {target && (
+                <small className="condition-scope">
+                  {target.scope === "planetary"
+                    ? `${bodyName} baseline · not a local measurement`
+                    : "Regional evidence"}
+                </small>
+              )}
               <p>
                 {key === "terrain"
-                  ? body === "mars"
-                    ? "Fixed 60% of the overall score. Profiles are mean-centered and standardized before comparing their shapes; the chart retains elevation amplitude in meters."
-                    : unknown.terrain
+                  ? "Fixed 70% of the overall score. Profiles are mean-centered and standardized before comparing their shapes; the chart retains elevation amplitude in meters."
                   : target?.text}
               </p>
               {target && (
@@ -143,14 +146,37 @@ export default function AnalogEvidence({
                   Planetary evidence ↗
                 </a>
               )}
+              {target &&
+                target.scope !== "planetary" &&
+                context.baselineFactors?.[key] && (
+                  <div className="planet-baseline">
+                    <small>{bodyName} baseline</small>
+                    <p>{context.baselineFactors[key]?.text}</p>
+                    <a
+                      href={context.baselineFactors[key]?.source}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Baseline source ↗
+                    </a>
+                  </div>
+                )}
               {control(key)}
               {candidate && (
                 <>
                   <h4>Earth: {candidate.name}</h4>
+                  {earth && (
+                    <small className="condition-scope">
+                      {earth.scope === "planetary"
+                        ? "Earth baseline · local conditions may vary"
+                        : "Regional evidence"}
+                    </small>
+                  )}
                   <p>
                     {key === "terrain"
                       ? `Shape similarity: ${candidate.profileSimilarity.toFixed(1)} / 100.`
-                      : earth?.text}
+                      : (earth?.text ??
+                        "Earth-site conditions have not been documented for this factor.")}
                   </p>
                   {earth && (
                     <a href={earth.source} target="_blank" rel="noreferrer">
@@ -160,7 +186,9 @@ export default function AnalogEvidence({
                   {result && (
                     <p className="small-note">
                       {key !== "terrain" &&
-                        `Documented shared-trait credit ${result.score?.toFixed(0)} / 100. ${result.shared.length ? result.shared.join(", ").replaceAll("-", " ") : "No shared traits recorded."} `}
+                        (result.score === null
+                          ? "Local comparison unavailable; no condition credit. "
+                          : `Documented condition credit ${result.score.toFixed(0)} / 100. ${result.shared.length ? result.shared.join(", ").replaceAll("-", " ") : "No shared conditions recorded."} `)}
                       Weighted contribution: {result.contribution.toFixed(1)}{" "}
                       points.
                     </p>

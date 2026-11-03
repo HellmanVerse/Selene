@@ -27,10 +27,10 @@ test("Mars API exposes regional evidence, weights and contributions and reranks 
   assert.equal(a.targetEvidence.name, "Olympus Mons");
   assert.equal(a.analogWeights.geology, 100);
   assert.ok(a.candidates[0].analog.earth);
-  assert.equal(a.analogWeights.terrain, 60);
+  assert.equal(a.analogWeights.terrain, 70);
   assert.equal(
     a.candidates[0].score,
-    0.6 * a.candidates[0].profileSimilarity + 40,
+    0.7 * a.candidates[0].profileSimilarity + 30,
   );
   assert.ok(a.candidates.some((c: { name: string }) => c.name === "Mauna Kea"));
   const top = a.candidates[0];
@@ -62,10 +62,13 @@ test("Mars API exposes regional evidence, weights and contributions and reranks 
         lat: 0,
         lon: 0,
         radius: 50,
-        analogWeights: {},
+        analogWeights: defaultAnalogWeights,
       }),
     }),
   );
   assert.equal(moon.status, 200);
-  assert.equal((await moon.json()).analogWeights, undefined);
+  const lunar = await moon.json();
+  assert.equal(lunar.analogWeights.terrain, 70);
+  assert.equal(lunar.targetEvidence.factors.geology.scope, "planetary");
+  assert.ok(lunar.candidates.every((c: { analog?: unknown }) => c.analog));
 });
