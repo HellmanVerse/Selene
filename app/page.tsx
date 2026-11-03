@@ -166,6 +166,7 @@ export default function Home() {
     request = useRef(0),
     controller = useRef<AbortController | null>(null);
   const candidate = analysis?.candidates[selected];
+  const comparisonCandidate = candidate ?? analysis?.closestProfile;
   let draft: { lat: number; lon: number } | null = null;
   try {
     if (latInput.trim() && lonInput.trim())
@@ -811,6 +812,14 @@ export default function Home() {
                         incomplete; a suitable location may exist outside the
                         current Earth index.
                       </p>
+                      {analysis.closestProfile && (
+                        <button
+                          className="button outline"
+                          onClick={() => setModal("compare")}
+                        >
+                          Compare closest profile <ArrowRight size={15} />
+                        </button>
+                      )}
                     </div>
                   )}
                 {analysis.candidates.map((c, i) => (
@@ -1322,208 +1331,237 @@ export default function Home() {
               </button>
             </>
           )}
-          {modal === "compare" && analysis && candidate && (
-            <>
-              <h2>Comparison</h2>
-              <p>
-                {bodyName} region {analysis.lat.toFixed(3)}°,{" "}
-                {analysis.lon.toFixed(3)}° ↔ {candidate.name}. Both comparison
-                columns use 10 km sample spacing, a {analysis.radius * 2} km
-                square window, and meter-based gradients. The Earth center was
-                shifted {Math.abs(candidate.eastShiftKm)} km
-                {candidate.eastShiftKm < 0
-                  ? " west"
-                  : candidate.eastShiftKm > 0
-                    ? " east"
-                    : ""}
-                {candidate.eastShiftKm === 0
-                  ? ""
-                  : " from the coarse screened center"}{" "}
-                for the best measured profile alignment.
-              </p>
-              <div className="compare-profile">
-                <Profile
-                  mars={mars}
-                  values={analysis.comparison.profile}
-                  other={candidate.alignedProfile}
-                  large
-                />
-                <div className="legend">
-                  <span>
-                    <i style={mars ? { background: "#c96b4b" } : undefined} />
-                    {bodyName} · NASA {mars ? "MOLA" : "LOLA"}
-                  </span>
-                  <span>
-                    <i />
-                    Earth · Mapzen terrain
-                  </span>
-                </div>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Parameter</th>
-                    <th>{bodyName}</th>
-                    <th>Earth</th>
-                    <th>Difference</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(
-                    [
-                      "min",
-                      "max",
-                      "mean",
-                      "median",
-                      "std",
-                      "relief",
-                      "slope",
-                      "maxSlope",
-                      "roughness",
-                      "ruggedness",
-                    ] as const
-                  ).map((k) => (
-                    <tr key={k}>
-                      <td>
-                        {
-                          {
-                            min: "Minimum elevation",
-                            max: "Maximum elevation",
-                            mean: "Mean elevation",
-                            median: "Median elevation",
-                            std: "Elevation std. deviation",
-                            relief: "Regional relief",
-                            slope: "Mean resolved slope",
-                            maxSlope: "Maximum resolved slope",
-                            roughness: "Plane-residual roughness",
-                            ruggedness: "8-neighbor RMS ruggedness",
-                          }[k]
-                        }
-                      </td>
-                      <td>
-                        {number(analysis.comparison[k], 2)}{" "}
-                        {k.toLowerCase().includes("slope") ? "°" : "m"}
-                      </td>
-                      <td>
-                        {number(
-                          candidate.metrics[String(analysis.radius)][k],
-                          2,
-                        )}{" "}
-                        {k.toLowerCase().includes("slope") ? "°" : "m"}
-                      </td>
-                      <td>
-                        {number(
-                          candidate.metrics[String(analysis.radius)][k] -
-                            analysis.comparison[k],
-                          2,
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <h3>Why this candidate ranked here</h3>
-              {analysis.profileRequirement?.required &&
-                candidate.profileFit && (
+          {modal === "compare" &&
+            analysis &&
+            comparisonCandidate &&
+            (() => {
+              const candidate = comparisonCandidate;
+              return (
+                <>
+                  <h2>Comparison</h2>
+                  {analysis.profileRequirement?.required &&
+                    !candidate.profileFit?.passes && (
+                      <div className="no-profile-match" role="status">
+                        <strong>
+                          Closest available profile — below the matching
+                          threshold.
+                        </strong>
+                        <p>
+                          This Earth location is shown for inspection only. It
+                          does not qualify as a close lunar graph match.
+                        </p>
+                      </div>
+                    )}
                   <p>
-                    Graph fit passed · mean-centered elevation RMS error{" "}
-                    {number(candidate.profileFit.rmseM)} m ·{" "}
-                    {candidate.profileFit.correlation === null
-                      ? "near-flat profile"
-                      : `correlation ${candidate.profileFit.correlation.toFixed(3)}`}{" "}
-                    · elevation-spread ratio{" "}
-                    {candidate.profileFit.amplitudeRatio === null
-                      ? "near-flat"
-                      : candidate.profileFit.amplitudeRatio.toFixed(2)}
-                    . Other conditions only rank candidates that pass this
-                    requirement.
+                    {bodyName} region {analysis.lat.toFixed(3)}°,{" "}
+                    {analysis.lon.toFixed(3)}° ↔ {candidate.name}. Both
+                    comparison columns use 10 km sample spacing, a{" "}
+                    {analysis.radius * 2} km square window, and meter-based
+                    gradients. The Earth center was shifted{" "}
+                    {Math.abs(candidate.eastShiftKm)} km
+                    {candidate.eastShiftKm < 0
+                      ? " west"
+                      : candidate.eastShiftKm > 0
+                        ? " east"
+                        : ""}
+                    {candidate.eastShiftKm === 0
+                      ? ""
+                      : " from the coarse screened center"}{" "}
+                    for the best measured profile alignment.
                   </p>
-                )}
-              {candidate.analog && (
-                <div className="analog-breakdown">
-                  <p>
-                    Overall analog score {candidate.score.toFixed(1)} / 100 ·
-                    weighted evidence coverage{" "}
-                    {candidate.analog.coverage.toFixed(0)}%. Shape similarity{" "}
-                    {candidate.profileSimilarity.toFixed(1)} / 100.
-                  </p>
+                  <div className="compare-profile">
+                    <Profile
+                      mars={mars}
+                      values={analysis.comparison.profile}
+                      other={candidate.alignedProfile}
+                      large
+                    />
+                    <div className="legend">
+                      <span>
+                        <i
+                          style={mars ? { background: "#c96b4b" } : undefined}
+                        />
+                        {bodyName} · NASA {mars ? "MOLA" : "LOLA"}
+                      </span>
+                      <span>
+                        <i />
+                        Earth · Mapzen terrain
+                      </span>
+                    </div>
+                  </div>
                   <table>
                     <thead>
                       <tr>
-                        <th>Factor</th>
-                        <th>Importance</th>
-                        <th>Evidence score</th>
-                        <th>Points</th>
+                        <th>Parameter</th>
+                        <th>{bodyName}</th>
+                        <th>Earth</th>
+                        <th>Difference</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {candidate.analog.factors.map((f) => (
-                        <tr key={f.key}>
-                          <td>{factorLabels[f.key]}</td>
+                      {(
+                        [
+                          "min",
+                          "max",
+                          "mean",
+                          "median",
+                          "std",
+                          "relief",
+                          "slope",
+                          "maxSlope",
+                          "roughness",
+                          "ruggedness",
+                        ] as const
+                      ).map((k) => (
+                        <tr key={k}>
                           <td>
-                            {f.key === "terrain"
-                              ? "70% fixed"
-                              : `${analysis.analogWeights?.[f.key] ?? 0} within conditions’ 30%`}
+                            {
+                              {
+                                min: "Minimum elevation",
+                                max: "Maximum elevation",
+                                mean: "Mean elevation",
+                                median: "Median elevation",
+                                std: "Elevation std. deviation",
+                                relief: "Regional relief",
+                                slope: "Mean resolved slope",
+                                maxSlope: "Maximum resolved slope",
+                                roughness: "Plane-residual roughness",
+                                ruggedness: "8-neighbor RMS ruggedness",
+                              }[k]
+                            }
                           </td>
                           <td>
-                            {f.score === null
-                              ? "Missing evidence"
-                              : f.score.toFixed(1)}
+                            {number(analysis.comparison[k], 2)}{" "}
+                            {k.toLowerCase().includes("slope") ? "°" : "m"}
                           </td>
-                          <td>{f.contribution.toFixed(1)}</td>
+                          <td>
+                            {number(
+                              candidate.metrics[String(analysis.radius)][k],
+                              2,
+                            )}{" "}
+                            {k.toLowerCase().includes("slope") ? "°" : "m"}
+                          </td>
+                          <td>
+                            {number(
+                              candidate.metrics[String(analysis.radius)][k] -
+                                analysis.comparison[k],
+                              2,
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <p className="small-note">
-                    Non-terrain scores reflect cited regional shared traits.
-                    They are not extracted physical measurements. Edit
-                    priorities in the location factors section.
-                  </p>
-                </div>
-              )}
-              <div className="similarities">
-                <div>
-                  <span>Profile shape</span>
-                  <strong className="mono">
-                    {candidate.profileSimilarity.toFixed(1)} / 100
-                  </strong>
-                  <small>
-                    Mean-centered shape · {candidate.eastShiftKm > 0 ? "+" : ""}
-                    {candidate.eastShiftKm} km east–west refinement
-                  </small>
-                </div>
-                {(Object.keys(candidate.similarity) as (keyof Weights)[]).map(
-                  (k) => (
-                    <div key={k}>
-                      <span>{k === "std" ? "Elevation variation" : k}</span>
+                  <h3>
+                    {analysis.profileRequirement?.required &&
+                    !candidate.profileFit?.passes
+                      ? "Closest profile diagnostics"
+                      : "Why this candidate ranked here"}
+                  </h3>
+                  {analysis.profileRequirement?.required &&
+                    candidate.profileFit?.passes && (
+                      <p>
+                        Graph fit passed · mean-centered elevation RMS error{" "}
+                        {number(candidate.profileFit.rmseM)} m ·{" "}
+                        {candidate.profileFit.correlation === null
+                          ? "near-flat profile"
+                          : `correlation ${candidate.profileFit.correlation.toFixed(3)}`}{" "}
+                        · elevation-spread ratio{" "}
+                        {candidate.profileFit.amplitudeRatio === null
+                          ? "near-flat"
+                          : candidate.profileFit.amplitudeRatio.toFixed(2)}
+                        . Other conditions only rank candidates that pass this
+                        requirement.
+                      </p>
+                    )}
+                  {candidate.analog && (
+                    <div className="analog-breakdown">
+                      <p>
+                        Overall analog score {candidate.score.toFixed(1)} / 100
+                        · weighted evidence coverage{" "}
+                        {candidate.analog.coverage.toFixed(0)}%. Shape
+                        similarity {candidate.profileSimilarity.toFixed(1)} /
+                        100.
+                      </p>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Factor</th>
+                            <th>Importance</th>
+                            <th>Evidence score</th>
+                            <th>Points</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {candidate.analog.factors.map((f) => (
+                            <tr key={f.key}>
+                              <td>{factorLabels[f.key]}</td>
+                              <td>
+                                {f.key === "terrain"
+                                  ? "70% fixed"
+                                  : `${analysis.analogWeights?.[f.key] ?? 0} within conditions’ 30%`}
+                              </td>
+                              <td>
+                                {f.score === null
+                                  ? "Missing evidence"
+                                  : f.score.toFixed(1)}
+                              </td>
+                              <td>{f.contribution.toFixed(1)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p className="small-note">
+                        Non-terrain scores reflect cited regional shared traits.
+                        They are not extracted physical measurements. Edit
+                        priorities in the location factors section.
+                      </p>
+                    </div>
+                  )}
+                  <div className="similarities">
+                    <div>
+                      <span>Profile shape</span>
                       <strong className="mono">
-                        {candidate.similarity[k].toFixed(1)} / 100
+                        {candidate.profileSimilarity.toFixed(1)} / 100
                       </strong>
                       <small>
-                        Diagnostic difference{" "}
-                        {number(candidate.differences[k], 2)}{" "}
-                        {k === "slope" ? "°" : "m"}
+                        Mean-centered shape ·{" "}
+                        {candidate.eastShiftKm > 0 ? "+" : ""}
+                        {candidate.eastShiftKm} km east–west refinement
                       </small>
                     </div>
-                  ),
-                )}
-              </div>
-              <p className="small-note">
-                Absolute lunar and terrestrial elevations use different datums
-                and are mean-centered in the graph. Absolute elevation does not
-                contribute to the score; the measured profile shape does.
-                Conditions use sourced planetary defaults and regional evidence
-                where available.
-              </p>
-              <button
-                className="button primary"
-                onClick={() => setModal("export")}
-              >
-                Export comparison <Download size={14} />
-              </button>
-            </>
-          )}
+                    {(
+                      Object.keys(candidate.similarity) as (keyof Weights)[]
+                    ).map((k) => (
+                      <div key={k}>
+                        <span>{k === "std" ? "Elevation variation" : k}</span>
+                        <strong className="mono">
+                          {candidate.similarity[k].toFixed(1)} / 100
+                        </strong>
+                        <small>
+                          Diagnostic difference{" "}
+                          {number(candidate.differences[k], 2)}{" "}
+                          {k === "slope" ? "°" : "m"}
+                        </small>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="small-note">
+                    Absolute lunar and terrestrial elevations use different
+                    datums and are mean-centered in the graph. Absolute
+                    elevation does not contribute to the score; the measured
+                    profile shape does. Conditions use sourced planetary
+                    defaults and regional evidence where available.
+                  </p>
+                  <button
+                    className="button primary"
+                    onClick={() => setModal("export")}
+                  >
+                    Export comparison <Download size={14} />
+                  </button>
+                </>
+              );
+            })()}
           {modal === "export" && analysis && (
             <>
               <h2>

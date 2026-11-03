@@ -68,6 +68,16 @@ export async function POST(req: NextRequest) {
       context,
       analogWeights,
     ).slice(0, 12);
+    const closestProfile =
+      !mars && matches.length === 0
+        ? weightAnalogs(
+            terrainMatches
+              .toSorted((a, b) => a.profileFit!.rmseM - b.profileFit!.rmseM)
+              .slice(0, 1),
+            context,
+            analogWeights,
+          )[0]
+        : undefined;
     // Downsample the display mesh only; metrics use the full native extraction.
     const step = Math.max(1, Math.floor(native.grid.length / 51));
     const grid = native.grid
@@ -84,6 +94,7 @@ export async function POST(req: NextRequest) {
       metrics: measured,
       comparison,
       candidates: matches,
+      closestProfile,
       candidateCount: candidates.length,
       profileRequirement: !mars
         ? {
@@ -101,7 +112,7 @@ export async function POST(req: NextRequest) {
       grid,
       spacing: native.spacing,
       created: new Date().toISOString(),
-      version: "0.4.1",
+      version: "0.4.2",
       limitations: [
         ...(!mars
           ? [

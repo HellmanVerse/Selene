@@ -95,5 +95,11 @@ test("Moon analysis returns a truthful empty result instead of falling back to a
   assert.equal(data.profileRequirement.required, true);
   assert.equal(data.profileRequirement.qualifiedCount, 0);
   assert.deepEqual(data.candidates, []);
+  assert.ok(data.closestProfile);
+  assert.equal(data.closestProfile.profileFit.passes, false);
+  assert.equal(
+    data.closestProfile.profileFit.rmseM,
+    data.profileRequirement.bestRmseM,
+  );
   assert.ok(Number.isFinite(data.profileRequirement.bestRmseM));
 });

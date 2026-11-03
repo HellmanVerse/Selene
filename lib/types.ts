@@ -46,6 +46,7 @@ export type Match = Candidate & {
   eastShiftKm: number;
 };
 export type Analysis = {
+  closestProfile?: Match;
   profileRequirement?: {
     required: boolean;
     qualifiedCount: number;
