@@ -1,0 +1,16 @@
+{
+  "product": "MOLA MEGDR MEGT90N000EB",
+  "version": "2.0",
+  "rows": 2880,
+  "columns": 5760,
+  "pixelsPerDegree": 16,
+  "radius": 3396000,
+  "scale": 1,
+  "datum": "GMM3 areoid",
+  "coordinates": "IAU2000 planetocentric east-positive",
+  "sha256": "d18d9b9ab8c5516d02e157dd2cde0f1d0d160c21940e953ba22391269a545e7b",
+  "min": -8177,
+  "max": 21171,
+  "source": "https://pds-geosciences.wustl.edu/missions/mgs/megdr.html",
+  "limits": "Interpolated gaps; approximately 55% of equatorial bins contain laser observations."
+}

@@ -7,7 +7,14 @@ export default function Profile({
   other?: number[];
   large?: boolean;
 }) {
-  const all = [...values, ...(other ?? [])],
+  const relative = (v: number[]) => {
+      if (!other) return v;
+      const mean = v.reduce((sum, z) => sum + z, 0) / v.length;
+      return v.map((z) => z - mean);
+    },
+    primary = relative(values),
+    secondary = other ? relative(other) : undefined,
+    all = [...primary, ...(secondary ?? [])],
     min = Math.min(...all),
     max = Math.max(...all),
     range = Math.max(1, max - min);
@@ -43,13 +50,18 @@ export default function Profile({
           />
         ))}
         <path
-          d={`${path(values)} L600,160 L0,160 Z`}
+          d={`${path(primary)} L600,160 L0,160 Z`}
           fill="url(#profile-fill)"
         />
-        <path d={path(values)} fill="none" stroke="#d1ff72" strokeWidth="1.7" />
-        {other && (
+        <path
+          d={path(primary)}
+          fill="none"
+          stroke="#d1ff72"
+          strokeWidth="1.7"
+        />
+        {secondary && (
           <path
-            d={path(other)}
+            d={path(secondary)}
             fill="none"
             stroke="#8ba3c4"
             strokeWidth="1.5"
@@ -58,7 +70,11 @@ export default function Profile({
       </svg>
       <div className="profile-axis mono">
         <span>W · {Math.round(min).toLocaleString()} m</span>
-        <span>Elevation relative to each body’s datum</span>
+        <span>
+          {other
+            ? "Elevation relative to each profile mean"
+            : "Elevation relative to datum"}
+        </span>
         <span>E · {Math.round(max).toLocaleString()} m</span>
       </div>
     </div>

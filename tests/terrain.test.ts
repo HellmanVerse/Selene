@@ -7,6 +7,7 @@ import {
   destination,
   metrics,
   rank,
+  alignProfile,
   NATIVE_SPACING,
 } from "../lib/terrain";
 import { extract } from "../lib/lola";
@@ -162,6 +163,20 @@ test("exact match outranks differing terrain and mission weights change ranking"
   );
   assert.throws(() =>
     rank(base, candidates, 100, { slope: 0, relief: 0, roughness: 0, std: 0 }),
+  );
+});
+test("profile alignment refines a candidate east or west and penalizes wrong shapes", () => {
+  const target = [0, 1, 4, 8, 4, 1, 0];
+  const wider = [9, 8, 7, 6, 5, 4, 3, 0, 1, 4, 8, 4, 1, 0, 5, 6, 7];
+  const aligned = alignProfile(target, wider);
+  assert.deepEqual(aligned.profile, target);
+  assert.equal(aligned.eastShiftKm, 20);
+  assert.equal(aligned.similarity, 100);
+  assert.ok(
+    alignProfile(
+      target,
+      Array.from({ length: 17 }, (_, i) => i),
+    ).similarity < 40,
   );
 });
 test("Earth index has genuine non-catalog coverage, all radius metrics, and attribution", async () => {

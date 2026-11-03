@@ -30,8 +30,12 @@ export type Match = Candidate & {
   score: number;
   similarity: Weights;
   differences: Weights;
+  profileSimilarity: number;
+  alignedProfile: number[];
+  eastShiftKm: number;
 };
 export type Analysis = {
+  body: "moon" | "mars";
   lat: number;
   lon: number;
   radius: number;

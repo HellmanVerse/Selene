@@ -6,6 +6,7 @@ type Props = {
   lat: number;
   lon: number;
   earth?: boolean;
+  mars?: boolean;
   onSelect?: (lat: number, lon: number) => void;
   name?: string;
 };
@@ -13,6 +14,7 @@ export default function Globe({
   lat,
   lon,
   earth = false,
+  mars = false,
   onSelect,
   name,
 }: Props) {
@@ -55,11 +57,11 @@ export default function Globe({
           "aria-label",
           earth
             ? "Interactive Earth globe"
-            : "Interactive lunar globe. Click a location to select coordinates.",
+            : `Interactive ${mars ? "Mars" : "lunar"} globe. Click a location to select coordinates.`,
         );
         const loader = new T.TextureLoader();
         const texture = loader.load(
-          earth ? "/earth.jpg" : "/moon.jpg",
+          earth ? "/earth.jpg" : mars ? "/mars.jpg" : "/moon.jpg",
           () => setReady(true),
           undefined,
           () => {
@@ -228,7 +230,7 @@ export default function Globe({
     };
     // Globe lifecycle is independent of changing coordinates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [earth]);
+  }, [earth, mars]);
   useEffect(() => {
     control.current?.fly(lat, lon);
   }, [lat, lon]);
@@ -239,13 +241,13 @@ export default function Globe({
       <div className="globe-render" ref={host}>
         {!ready && !failed && (
           <div className="globe-loading mono">
-            Loading {earth ? "Earth" : "lunar"} imagery…
+            Loading {earth ? "Earth" : mars ? "Mars" : "lunar"} imagery…
           </div>
         )}
         {failed && (
           <div className="globe-loading">
             3D rendering is unavailable. Use coordinate entry below to analyze
-            any lunar region.
+            any {mars ? "Mars" : "lunar"} region.
           </div>
         )}
         <div className="globe-marker" ref={marker}>

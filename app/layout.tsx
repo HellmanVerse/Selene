@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Torsion — From the Moon. Back to Earth.",
   description:
-    "Explore the Moon, measure NASA lunar terrain, and discover reproducible terrestrial analog candidates.",
+    "Explore the Moon and Mars, measure NASA terrain, and discover reproducible Earth analog candidates.",
 };
 export default function RootLayout({
   children,

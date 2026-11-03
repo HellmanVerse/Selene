@@ -147,12 +147,86 @@ export function rank(
         differences[k] = m[k] - target[k];
         similarity[k] = Math.exp(-Math.abs(differences[k]) / scales[k]) * 100;
       });
+      const alignment = alignProfile(
+        target.profile,
+        c.metrics["150"]?.profile ?? m.profile,
+      );
+      const aggregateScore = keys.reduce(
+        (s, k) => s + (similarity[k] * weights[k]) / sum,
+        0,
+      );
+      const shifted = destination(
+        c.lat,
+        c.lon,
+        alignment.eastShiftKm * 1000,
+        0,
+        6371008.8,
+      );
       return {
         ...c,
+        lat: shifted.lat,
+        lon: shifted.lon > 180 ? shifted.lon - 360 : shifted.lon,
         similarity,
         differences,
-        score: keys.reduce((s, k) => s + (similarity[k] * weights[k]) / sum, 0),
+        profileSimilarity: alignment.similarity,
+        alignedProfile: alignment.profile,
+        eastShiftKm: alignment.eastShiftKm,
+        // Balance regional statistics with the observed cross-section so a
+        // visibly unrelated profile cannot rank highly merely because four
+        // summary values happen to agree.
+        score: aggregateScore * 0.5 + alignment.similarity * 0.5,
       };
     })
     .sort((a, b) => b.score - a.score);
+}
+
+function profileShapeSimilarity(a: number[], b: number[]) {
+  const standardize = (values: number[]) => {
+    const mean = values.reduce((s, v) => s + v, 0) / values.length;
+    const centered = values.map((v) => v - mean);
+    const std = Math.sqrt(
+      centered.reduce((s, v) => s + v * v, 0) / values.length,
+    );
+    return { centered, std };
+  };
+  const x = standardize(a),
+    y = standardize(b);
+  if (x.std < 1 && y.std < 1) return 100;
+  if (x.std < 1 || y.std < 1) return 0;
+  const rmse = Math.sqrt(
+    x.centered.reduce(
+      (s, v, i) => s + (v / x.std - y.centered[i] / y.std) ** 2,
+      0,
+    ) / a.length,
+  );
+  return Math.exp(-rmse / 0.75) * 100;
+}
+
+export function alignProfile(target: number[], wider: number[]) {
+  if (target.length < 3 || wider.length < target.length)
+    throw new Error("Profiles cannot be aligned.");
+  const centeredStart = Math.floor((wider.length - target.length) / 2);
+  // A shift of at most 50 km refines a coarse candidate without pretending
+  // the 5-degree global screen is a high-resolution exhaustive search.
+  const maxShiftSamples = Math.min(5, centeredStart);
+  let best = {
+    similarity: -1,
+    profile: wider.slice(centeredStart, centeredStart + target.length),
+    eastShiftKm: 0,
+  };
+  for (
+    let start = centeredStart - maxShiftSamples;
+    start <= centeredStart + maxShiftSamples;
+    start++
+  ) {
+    const profile = wider.slice(start, start + target.length);
+    const similarity = profileShapeSimilarity(target, profile);
+    if (similarity > best.similarity)
+      best = {
+        similarity,
+        profile,
+        eastShiftKm: (start - centeredStart) * 10,
+      };
+  }
+  return best;
 }

@@ -2308,3 +2308,53 @@ td:not(:first-child) {
     font-size: 11px;
   }
 }
+.planet-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 24px 4%;
+  border-bottom: 1px solid #262626;
+}
+.planet-tabs button {
+  padding: 12px 30px;
+  border: 1px solid #333;
+  border-radius: 24px;
+  background: transparent;
+  color: #aaa;
+  cursor: pointer;
+}
+.planet-tabs button[aria-selected="true"] {
+  color: #101010;
+  background: #d1ff72;
+  border-color: #d1ff72;
+}
+.analog-evidence {
+  padding: 64px 4%;
+  border-top: 1px solid #262626;
+}
+.analog-evidence h2 {
+  font-size: clamp(28px, 4vw, 48px);
+  margin: 20px 0;
+}
+.analog-evidence > p {
+  color: #aaa;
+  max-width: 900px;
+  line-height: 1.7;
+}
+.analog-evidence article {
+  border: 1px solid #292929;
+  padding: 24px;
+  margin-top: 16px;
+}
+.analog-evidence article p {
+  color: #aaa;
+  line-height: 1.6;
+}
+.analog-evidence article a {
+  color: #d1ff72;
+  font-size: 13px;
+}
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}

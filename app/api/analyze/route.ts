@@ -16,6 +16,9 @@ const metadata = readFile(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    if (body.body && !["moon", "mars"].includes(body.body))
+      throw new Error("Choose Moon or Mars.");
+    const mars = body.body === "mars";
     if (typeof body.lat !== "number" || typeof body.lon !== "number")
       throw new Error("Coordinates must be numeric.");
     const { lat, lon } = coordinates(body.lat, body.lon),
@@ -29,10 +32,20 @@ export async function POST(req: NextRequest) {
       std: 10,
     };
     const [native, coarse, candidates, source] = await Promise.all([
-      extract(lat, lon, radius),
-      extract(lat, lon, radius, 10000),
+      extract(
+        lat,
+        lon,
+        radius,
+        mars ? (Math.PI * 3396000) / 180 / 16 : undefined,
+        mars,
+      ),
+      extract(lat, lon, radius, 10000, mars),
       candidateData,
-      metadata,
+      mars
+        ? readFile(process.cwd() + "/data/mola-metadata.json", "utf-8").then(
+            JSON.parse,
+          )
+        : metadata,
     ]);
     const measured = metrics(native.grid, native.spacing),
       comparison = metrics(coarse.grid, 10000);
@@ -44,6 +57,7 @@ export async function POST(req: NextRequest) {
       .map((row) => row.filter((_, i) => i % step === 0));
     return NextResponse.json({
       lat,
+      body: mars ? "mars" : "moon",
       lon,
       radius,
       weights,
@@ -56,12 +70,18 @@ export async function POST(req: NextRequest) {
       grid,
       spacing: native.spacing,
       created: new Date().toISOString(),
-      version: "0.1.0",
+      version: "0.2.0",
       limitations: [
-        "LOLA LDEM_16 is an interpolated 2019 global product. Grid coverage is not laser-shot coverage. Nominal north–south spacing is 1.895 km; east–west spacing contracts with latitude.",
-        "Polar regions are sampled on a local spherical grid; nearest-neighbor values are retained. Coarse interpolated relief cannot resolve boulders, landing hazards, pits or traversable paths.",
+        ...(mars
+          ? [
+              "MOLA MEGDR v2 uses IAU2000 planetocentric east-positive coordinates and areoid-relative meter elevations. 16 pixels/degree corresponds to 3.705 km north–south spacing. Gaps are interpolated; equatorial shot coverage is approximately 55%. Thermal, ice, mineralogy and atmospheric layers are research references, not measured analog scores.",
+            ]
+          : [
+              "LOLA LDEM_16 is an interpolated 2019 global product. Grid coverage is not laser-shot coverage. Nominal north–south spacing is 1.895 km; east–west spacing contracts with latitude.",
+              "Polar regions are sampled on a local spherical grid; nearest-neighbor values are retained. Coarse interpolated relief cannot resolve boulders, landing hazards, pits or traversable paths.",
+            ]),
         "Rankings compare both bodies at 10 km sample spacing in square windows of equal physical extent. Earth zoom-4 tiles have latitude-dependent native spacing up to 9.8 km; resampling does not add detail.",
-        "Earth screening uses a 5-degree land lattice from 65°S to 80°N plus reference sites. This is a broad but incomplete search. Coastal windows can include water.",
+        "Earth screening uses a 5-degree land lattice from 65°S to 80°N plus reference sites. Profile alignment may refine a screened center by up to 50 km east or west. This remains a broad, incomplete search. Coastal windows can include water.",
         "Scores are deterministic topographic similarity indices, not probabilities or mission suitability. Environmental, material, geology, thermal and illumination similarity are unmeasured.",
         "Source vertical uncertainty and per-window interpolation uncertainty are not quantified. Product boundary artifacts may occur at 45-degree latitude bands.",
         "SLDEM2015, NAC DTMs, Diviner and M³ are reference sources, not active measurement layers in this deployment. No high-resolution coverage is inferred from a place name.",

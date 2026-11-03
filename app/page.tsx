@@ -22,7 +22,9 @@ import {
   BookOpen,
   MapPin,
 } from "lucide-react";
-import { locations } from "@/lib/locations";
+import { locations as moonLocations } from "@/lib/locations";
+import { marsLocations } from "@/lib/mars-locations";
+import AnalogEvidence from "@/components/AnalogEvidence";
 import type { Analysis, Weights, Match } from "@/lib/types";
 import Profile from "@/components/Profile";
 import { coordinates } from "@/lib/terrain";
@@ -112,6 +114,10 @@ function kml(c: Match) {
   return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Torsion Earth candidate</name><Placemark><name>${c.name.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</name><LookAt><longitude>${c.lon}</longitude><latitude>${c.lat}</latitude><range>150000</range><tilt>65</tilt><heading>0</heading></LookAt><Point><coordinates>${c.lon},${c.lat},0</coordinates></Point></Placemark></Document></kml>`;
 }
 export default function Home() {
+  const [body, setBody] = useState<"moon" | "mars">("moon");
+  const mars = body === "mars",
+    bodyName = mars ? "Mars" : "Moon";
+  const locations = mars ? marsLocations : moonLocations;
   const [lat, setLat] = useState(-43.31),
     [lon, setLon] = useState(-11.36),
     [latInput, setLatInput] = useState("-43.31"),
@@ -147,7 +153,8 @@ export default function Home() {
   }
   const stale =
     !!analysis &&
-    (!draft ||
+    (analysis.body !== body ||
+      !draft ||
       Math.abs(analysis.lat - draft.lat) > 1e-8 ||
       Math.abs(analysis.lon - draft.lon) > 1e-8 ||
       analysis.radius !== radius ||
@@ -176,7 +183,7 @@ export default function Home() {
       let point: { lat: number; lon: number };
       try {
         if (!latInput.trim() || !lonInput.trim())
-          throw new Error("Enter both lunar coordinates.");
+          throw new Error(`Enter both ${bodyName} coordinates.`);
         point = coordinates(Number(latInput), Number(lonInput));
         if (Object.values(weights).every((value) => value === 0))
           throw new Error(
@@ -185,7 +192,9 @@ export default function Home() {
       } catch (e) {
         setBusy(false);
         setError(
-          e instanceof Error ? e.message : "Enter valid lunar coordinates.",
+          e instanceof Error
+            ? e.message
+            : `Enter valid ${bodyName} coordinates.`,
         );
         return;
       }
@@ -205,7 +214,7 @@ export default function Home() {
         const response = await fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...point, radius, weights }),
+          body: JSON.stringify({ ...point, radius, weights, body }),
           signal: abort.signal,
         });
         const data = await response.json();
@@ -232,7 +241,7 @@ export default function Home() {
         if (id === request.current) setBusy(false);
       }
     },
-    [latInput, lonInput, radius, weights],
+    [latInput, lonInput, radius, weights, body, locations],
   );
   useEffect(() => {
     setBusy(true);
@@ -282,7 +291,7 @@ export default function Home() {
         "ruggedness",
       ] as const;
       save(
-        "metric,unit,moon_native,moon_10km,earth_candidate_10km\n" +
+        `metric,unit,${body}_native,${body}_10km,earth_candidate_10km\n` +
           keys
             .map(
               (k) =>
@@ -311,7 +320,8 @@ export default function Home() {
           <span className="brand-mark">
             <Orbit size={22} />
           </span>
-          Torsion<span className="brand-tag mono">LUNAR</span>
+          Torsion
+          <span className="brand-tag mono">{mars ? "MARS" : "LUNAR"}</span>
         </a>
         <nav>
           <a href="#explore">Explorer</a>
@@ -330,10 +340,34 @@ export default function Home() {
         </a>
       </header>
       <main>
+        <div
+          className="planet-tabs"
+          role="tablist"
+          aria-label="Explore a planet"
+        >
+          {(["moon", "mars"] as const).map((planet) => (
+            <button
+              key={planet}
+              role="tab"
+              aria-selected={body === planet}
+              onClick={() => {
+                setBody(planet);
+                setAnalysis(null);
+                setCategory("All regions");
+                setSearch("");
+                const p =
+                  planet === "mars" ? marsLocations[0] : moonLocations[0];
+                choose(p.lat, p.lon, p.name);
+              }}
+            >
+              {planet === "mars" ? "Mars" : "Moon"}
+            </button>
+          ))}
+        </div>
         <section className="intro" id="explore">
           <div className="section-meta mono">
             <span aria-hidden="true" />
-            <span>01 / EXPLORE THE MOON</span>
+            <span>01 / EXPLORE {bodyName.toUpperCase()}</span>
           </div>
           <div className="hero">
             <div className="hero-copy">
@@ -342,7 +376,7 @@ export default function Home() {
                 <br />
                 <span>Closer to home.</span>
               </h1>
-              <p>Find Earth’s closest terrain analogs to the Moon.</p>
+              <p>Find Earth’s closest terrain analogs to {bodyName}.</p>
               <button
                 className="button primary hero-cta"
                 onClick={() =>
@@ -351,23 +385,30 @@ export default function Home() {
                     ?.scrollIntoView({ behavior: "smooth", block: "center" })
                 }
               >
-                Explore a lunar region <ArrowRight size={16} />
+                Explore {bodyName} <ArrowRight size={16} />
               </button>
               <div className="hero-proof mono">
                 <span>
-                  <Crosshair size={13} /> ANY LUNAR COORDINATE
+                  <Crosshair size={13} /> ANY {mars ? "MARS" : "LUNAR"}{" "}
+                  COORDINATE
                 </span>
                 <span>
-                  <Layers size={13} /> NASA LOLA ELEVATION
+                  <Layers size={13} /> NASA {mars ? "MOLA" : "LOLA"} ELEVATION
                 </span>
               </div>
             </div>
             <div className="hero-globe">
               <div className="globe-corner mono">
-                <span>MOON / LUNA</span>
-                <span>MEAN RADIUS 1,737.4 KM</span>
+                <span>{mars ? "MARS / THE RED PLANET" : "MOON / LUNA"}</span>
+                <span>
+                  {mars
+                    ? "REFERENCE RADIUS 3,396 KM"
+                    : "MEAN RADIUS 1,737.4 KM"}
+                </span>
               </div>
               <Globe
+                mars={mars}
+                key={body}
                 lat={lat}
                 lon={lon}
                 name={site}
@@ -378,13 +419,13 @@ export default function Home() {
                   <span className="tiny-cross">+</span> DRAG TO ORBIT · CLICK TO
                   SELECT · SCROLL TO ZOOM
                 </span>
-                <span>NASA / LRO</span>
+                <span>NASA / {mars ? "MGS · VIKING" : "LRO"}</span>
               </div>
             </div>
           </div>
           <div className="workflow mono">
             <span className="active">
-              <b>01</b> EXPLORE MOON
+              <b>01</b> EXPLORE {bodyName.toUpperCase()}
             </span>
             <ArrowRight />
             <span className={analysis ? "active" : ""}>
@@ -403,7 +444,9 @@ export default function Home() {
         <section className="workspace" id="region-controls">
           <aside className="region-panel">
             <div className="panel-heading">
-              <span className="mono">YOUR LUNAR REGION</span>
+              <span className="mono">
+                YOUR {mars ? "MARS" : "LUNAR"} REGION
+              </span>
               <span className="pill">LEVEL A</span>
             </div>
             <div className="selected-site">
@@ -414,20 +457,20 @@ export default function Home() {
                 <h2>{site}</h2>
                 <p>
                   {site === "Custom region"
-                    ? "User-selected lunar coordinates"
+                    ? `User-selected ${bodyName} coordinates`
                     : locations.find((p) => p.name === site)?.category}{" "}
-                  <span> / MOON</span>
+                  <span> / {bodyName.toUpperCase()}</span>
                 </p>
               </div>
             </div>
             <label className="location-entry">
-              <span>Lunar location</span>
+              <span>{bodyName} location</span>
               <div className="search-box">
                 <Search size={14} />
                 <input
-                  aria-label="Lunar location"
+                  aria-label={`${bodyName} location`}
                   list="lunar-locations"
-                  placeholder="Type a lunar location…"
+                  placeholder={`Type a ${bodyName} location…`}
                   value={locationInput}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -448,7 +491,7 @@ export default function Home() {
                     if (place) choose(place.lat, place.lon, place.name);
                     else
                       setError(
-                        "Choose a lunar location from the suggestions or enter its coordinates below.",
+                        `Choose a ${bodyName} location from the suggestions or enter its coordinates below.`,
                       );
                   }}
                 />
@@ -480,7 +523,7 @@ export default function Home() {
               <label>
                 Latitude <span>°N</span>
                 <input
-                  aria-label="Lunar latitude"
+                  aria-label={`${bodyName} latitude`}
                   type="number"
                   min="-90"
                   max="90"
@@ -498,7 +541,7 @@ export default function Home() {
               <label>
                 Longitude <span>°E</span>
                 <input
-                  aria-label="Lunar longitude"
+                  aria-label={`${bodyName} longitude`}
                   type="number"
                   min="-180"
                   max="360"
@@ -536,7 +579,9 @@ export default function Home() {
           </aside>
           <div className="mission-panel">
             <div className="panel-heading">
-              <span className="mono">MEASURED LUNAR TERRAIN</span>
+              <span className="mono">
+                MEASURED {mars ? "MARS" : "LUNAR"} TERRAIN
+              </span>
               <span className="pill">AUTOMATIC</span>
             </div>
             <h2>
@@ -550,7 +595,7 @@ export default function Home() {
             </p>
             <dl
               className="auto-metrics"
-              aria-label="Measured lunar terrain"
+              aria-label={`Measured ${bodyName} terrain`}
               aria-busy={busy}
               aria-live="polite"
             >
@@ -585,7 +630,7 @@ export default function Home() {
               {busy
                 ? "Gathering terrain data for your selection…"
                 : analysis && !stale
-                  ? "Measured automatically · NASA LOLA · 1.895 km grid"
+                  ? `Measured automatically · NASA ${mars ? "MOLA · 3.705" : "LOLA · 1.895"} km grid`
                   : "Enter a valid location to gather terrain data."}
             </p>
             <details className="advanced-mission">
@@ -645,12 +690,14 @@ export default function Home() {
             <div className="data-status">
               <i className="status-dot" />
               <strong>Global baseline ready</strong>
-              <span className="mono">LOLA / LDEM_16</span>
+              <span className="mono">
+                {mars ? "MOLA / MEGDR" : "LOLA / LDEM_16"}
+              </span>
             </div>
             <dl>
               <div>
                 <dt>Grid spacing</dt>
-                <dd>1.895 km N–S</dd>
+                <dd>{mars ? "3.705" : "1.895"} km N–S</dd>
               </div>
               <div>
                 <dt>Matching sample spacing</dt>
@@ -662,7 +709,7 @@ export default function Home() {
               </div>
               <div>
                 <dt>Acquisition</dt>
-                <dd>2009–2016</dd>
+                <dd>{mars ? "1997–2001" : "2009–2016"}</dd>
               </div>
             </dl>
             <button className="text-button" onClick={() => setModal("sources")}>
@@ -707,7 +754,7 @@ export default function Home() {
         )}
         <div className="live-announcement" aria-live="polite">
           {busy
-            ? "Analyzing lunar terrain and matching Earth regions."
+            ? `Analyzing ${bodyName} terrain and matching Earth regions.`
             : analysis
               ? `Analysis complete. ${analysis.candidateCount} Earth regions screened.`
               : ""}
@@ -719,7 +766,7 @@ export default function Home() {
                 <div className="eyebrow mono">
                   02 / A CONNECTION ACROSS WORLDS
                 </div>
-                <h2>Earth, through a lunar lens.</h2>
+                <h2>Earth, through a {mars ? "Martian" : "lunar"} lens.</h2>
                 <p>
                   {analysis.candidateCount} regions screened. Ranked by measured
                   topography at a shared 10 km spacing.
@@ -756,7 +803,9 @@ export default function Home() {
                     {number(Number(value), unit === "°" ? 2 : 0)}
                     <small>{unit}</small>
                   </strong>
-                  <span className="mono">NASA LOLA · 1.895 KM GRID</span>
+                  <span className="mono">
+                    NASA {mars ? "MOLA · 3.705" : "LOLA · 1.895"} KM GRID
+                  </span>
                 </div>
               ))}
             </div>
@@ -853,7 +902,9 @@ export default function Home() {
             <div className="terrain-section">
               <div className="terrain-profile">
                 <div className="panel-heading">
-                  <span className="mono">LUNAR TERRAIN PROFILE</span>
+                  <span className="mono">
+                    {mars ? "MARS" : "LUNAR"} TERRAIN PROFILE
+                  </span>
                   <button
                     className="text-button"
                     onClick={() => setSurface(!surface)}
@@ -868,7 +919,7 @@ export default function Home() {
                   <Profile values={analysis.metrics.profile} />
                 )}
                 <p className="small-note">
-                  West–east transect through the analysis center. Lunar
+                  West–east transect through the analysis center. {bodyName}
                   elevations are relative to a 1,737.4 km sphere. Native raster
                   extraction uses nearest neighbors.
                 </p>
@@ -914,7 +965,7 @@ export default function Home() {
                 ))}
               </ul>
               <p className="mono">
-                PRODUCT LDEM_16 V3.1 · GENERATED{" "}
+                PRODUCT {mars ? "MOLA MEGDR V2" : "LDEM_16 V3.1"} · GENERATED{" "}
                 {new Date(analysis.created).toISOString()} · GRID VALIDITY{" "}
                 {analysis.coverage}%
               </p>
@@ -922,6 +973,7 @@ export default function Home() {
             </details>
           </section>
         )}
+        <AnalogEvidence body={body} candidate={candidate} />
         {!analysis && (
           <section className="explainer">
             <div className="eyebrow mono">SAME SHAPES. DIFFERENT WORLDS.</div>
@@ -933,18 +985,18 @@ export default function Home() {
               </h2>
               <p>
                 From impact basins to volcanic plains, Earth holds terrain that
-                can help us understand the Moon. Torsion makes those connections
-                measurable—and their limitations visible.
+                can help us understand {bodyName}. Torsion makes those
+                connections measurable—and their limitations visible.
               </p>
             </div>
             <div className="principles">
               <article>
                 <span className="mono">01 / EXPLORE</span>
                 <Globe2 size={22} />
-                <h3>The whole lunar surface.</h3>
+                <h3>The whole {bodyName} surface.</h3>
                 <p>
-                  Choose a landmark or any coordinate. The global LOLA grid
-                  provides the baseline.
+                  Choose a landmark or any coordinate. The global{" "}
+                  {mars ? "MOLA" : "LOLA"} grid provides the baseline.
                 </p>
               </article>
               <article>
@@ -1021,8 +1073,8 @@ export default function Home() {
               <div className="search-box">
                 <Search size={16} />
                 <input
-                  placeholder="Search lunar locations…"
-                  aria-label="Search lunar locations"
+                  placeholder={`Search ${bodyName} locations…`}
+                  aria-label={`Search ${bodyName} locations`}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -1069,6 +1121,26 @@ export default function Home() {
               </div>
             </>
           )}
+          {modal === "sources" && mars && (
+            <div className="source-level">
+              <h3>Mars · active global topography</h3>
+              <p>
+                MOLA MEGDR v2 · 5,760 × 2,880 cells · 16 pixels/degree · 3.705
+                km grid. IAU2000 planetocentric coordinates, east-positive
+                longitude, meter elevations above the GMM3 areoid. Interpolated
+                gaps remain; equatorial shot coverage is approximately 55%.
+              </p>
+              <a href="https://pds-geosciences.wustl.edu/missions/mgs/megdr.html">
+                NASA PDS · MOLA archive
+              </a>
+              <p>
+                Globe: Viking imagery, Caltech/JPL/USGS. Visual context only.
+              </p>
+              <a href="https://space.jpl.nasa.gov/tmaps/mars.html">
+                NASA/JPL imagery attribution
+              </a>
+            </div>
+          )}
           {modal === "sources" && (
             <>
               <h2>
@@ -1083,7 +1155,7 @@ export default function Home() {
               <div className="source-level">
                 <div>
                   <span className="pill">A · ACTIVE</span>
-                  <h3>Global lunar topography</h3>
+                  <h3>Moon reference · global lunar topography</h3>
                 </div>
                 <p>
                   LDEM_16 v3.1 · 5,760 × 2,880 samples · 16 pixels/degree · 0.5
@@ -1158,15 +1230,17 @@ export default function Home() {
               </p>
               <ol className="method-list">
                 <li>
-                  <b>Select a region.</b> Any body-fixed lunar coordinate, with
-                  east-positive longitude. A spherical azimuthal-equidistant
-                  local grid handles poles and the longitude seam.
+                  <b>Select a region.</b> Any body-fixed planetary coordinate,
+                  with east-positive longitude. A spherical
+                  azimuthal-equidistant local grid handles poles and the
+                  longitude seam.
                 </li>
                 <li>
-                  <b>Extract elevation.</b> The selected NASA LOLA band files
-                  are decompressed server-side. Native nearest-neighbor samples
-                  support regional terrain metrics; the browser receives only
-                  the region and a display mesh.
+                  <b>Extract elevation.</b> The selected NASA{" "}
+                  {mars ? "MOLA" : "LOLA"} band files are decompressed
+                  server-side. Native nearest-neighbor samples support regional
+                  terrain metrics; the browser receives only the region and a
+                  display mesh.
                 </li>
                 <li>
                   <b>Calculate descriptors.</b> Elevation statistics,
@@ -1175,8 +1249,8 @@ export default function Home() {
                   center west–east transect.
                 </li>
                 <li>
-                  <b>Match at a shared scale.</b> Lunar and Earth windows use
-                  the same physical extent and 10 km sample spacing. Earth
+                  <b>Match at a shared scale.</b> Planetary and Earth windows
+                  use the same physical extent and 10 km sample spacing. Earth
                   metrics are preprocessed from measured elevation tiles, then
                   cached.
                 </li>
@@ -1189,7 +1263,7 @@ export default function Home() {
               <div className="formula mono">
                 sᵢ = 100 × exp(−|earthᵢ − moonᵢ| / scaleᵢ)
                 <br />
-                score = Σ(weightᵢ × sᵢ) / Σ(weightᵢ)
+                score = 0.5 × regional similarity + 0.5 × profile similarity
               </div>
               <p>
                 Reference scales: slope 3°, relief 3,000 m, roughness 600 m,
@@ -1199,9 +1273,9 @@ export default function Home() {
               </p>
               <p>
                 Terrestrial gravity, atmosphere, radiation, temperature,
-                materials and access do not reproduce lunar conditions. Those
-                similarities are unmeasured. No site is certified suitable for
-                fieldwork or landing.
+                materials and access do not reproduce {bodyName} conditions.
+                Those similarities are unmeasured. No site is certified suitable
+                for fieldwork or landing.
               </p>
               <button
                 className="button outline"
@@ -1215,21 +1289,31 @@ export default function Home() {
             <>
               <h2>Comparison</h2>
               <p>
-                Lunar region {analysis.lat.toFixed(3)}°,{" "}
+                {bodyName} region {analysis.lat.toFixed(3)}°,{" "}
                 {analysis.lon.toFixed(3)}° ↔ {candidate.name}. Both comparison
                 columns use 10 km sample spacing, a {analysis.radius * 2} km
-                square window, and meter-based gradients.
+                square window, and meter-based gradients. The Earth center was
+                shifted {Math.abs(candidate.eastShiftKm)} km
+                {candidate.eastShiftKm < 0
+                  ? " west"
+                  : candidate.eastShiftKm > 0
+                    ? " east"
+                    : ""}
+                {candidate.eastShiftKm === 0
+                  ? ""
+                  : " from the coarse screened center"}{" "}
+                for the best measured profile alignment.
               </p>
               <div className="compare-profile">
                 <Profile
                   values={analysis.comparison.profile}
-                  other={candidate.metrics[String(analysis.radius)].profile}
+                  other={candidate.alignedProfile}
                   large
                 />
                 <div className="legend">
                   <span>
                     <i />
-                    Moon · NASA LOLA
+                    {bodyName} · NASA {mars ? "MOLA" : "LOLA"}
                   </span>
                   <span>
                     <i />
@@ -1241,7 +1325,7 @@ export default function Home() {
                 <thead>
                   <tr>
                     <th>Parameter</th>
-                    <th>Moon</th>
+                    <th>{bodyName}</th>
                     <th>Earth</th>
                     <th>Difference</th>
                   </tr>
@@ -1302,6 +1386,16 @@ export default function Home() {
               </table>
               <h3>Why this candidate ranked here</h3>
               <div className="similarities">
+                <div>
+                  <span>Profile shape</span>
+                  <strong className="mono">
+                    {candidate.profileSimilarity.toFixed(1)} / 100
+                  </strong>
+                  <small>
+                    Mean-centered shape · {candidate.eastShiftKm > 0 ? "+" : ""}
+                    {candidate.eastShiftKm} km east–west refinement
+                  </small>
+                </div>
                 {(Object.keys(candidate.similarity) as (keyof Weights)[]).map(
                   (k) => (
                     <div key={k}>
@@ -1320,8 +1414,9 @@ export default function Home() {
               </div>
               <p className="small-note">
                 Absolute lunar and terrestrial elevations use different datums
-                and are displayed for context only. They do not contribute to
-                the score. Environmental and material similarity: unavailable.
+                and are mean-centered in the graph. Absolute elevation does not
+                contribute to the score; the measured profile shape does.
+                Environmental and material similarity: unavailable.
               </p>
               <button
                 className="button primary"
@@ -1353,7 +1448,7 @@ export default function Home() {
                   [
                     "csv",
                     "Terrain comparison",
-                    "CSV · Moon and selected Earth candidate",
+                    `CSV · ${bodyName} and selected Earth candidate`,
                   ],
                   [
                     "kml",

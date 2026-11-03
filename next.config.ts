@@ -4,6 +4,8 @@ const config: NextConfig = {
     "/api/analyze": [
       "./data/lola/*.bin.gz",
       "./data/lola-metadata.json",
+      "./data/mola/*.bin.gz",
+      "./data/mola-metadata.json",
       "./data/earth-candidates.json",
     ],
   },
