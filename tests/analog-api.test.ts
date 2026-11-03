@@ -71,4 +71,29 @@ test("Mars API exposes regional evidence, weights and contributions and reranks 
   assert.equal(lunar.analogWeights.terrain, 70);
   assert.equal(lunar.targetEvidence.factors.geology.scope, "planetary");
   assert.ok(lunar.candidates.every((c: { analog?: unknown }) => c.analog));
+  assert.equal(lunar.profileRequirement.required, true);
+  assert.equal(
+    lunar.candidates.length,
+    Math.min(12, lunar.profileRequirement.qualifiedCount),
+  );
+  assert.ok(
+    lunar.candidates.every(
+      (c: { profileFit: { passes: boolean } }) => c.profileFit.passes,
+    ),
+  );
+});
+test("Moon analysis returns a truthful empty result instead of falling back to a poor graph", async () => {
+  const response = await POST(
+    new NextRequest("http://localhost/api/analyze", {
+      method: "POST",
+      body: JSON.stringify({ body: "moon", lat: -87, lon: -11.36, radius: 50 }),
+    }),
+  );
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.ok(data.candidateCount > 0);
+  assert.equal(data.profileRequirement.required, true);
+  assert.equal(data.profileRequirement.qualifiedCount, 0);
+  assert.deepEqual(data.candidates, []);
+  assert.ok(Number.isFinite(data.profileRequirement.bestRmseM));
 });

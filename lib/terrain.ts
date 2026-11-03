@@ -132,6 +132,7 @@ export function rank(
   candidates: Candidate[],
   radius: number,
   weights: Weights,
+  requireProfileFit = false,
 ): Match[] {
   const keys = ["slope", "relief", "roughness", "std"] as const;
   const sum = keys.reduce((s, k) => s + weights[k], 0);
@@ -150,6 +151,7 @@ export function rank(
       const alignment = alignProfile(
         target.profile,
         c.metrics["150"]?.profile ?? m.profile,
+        requireProfileFit,
       );
       const aggregateScore = keys.reduce(
         (s, k) => s + (similarity[k] * weights[k]) / sum,
@@ -171,6 +173,7 @@ export function rank(
         profileSimilarity: alignment.similarity,
         alignedProfile: alignment.profile,
         eastShiftKm: alignment.eastShiftKm,
+        profileFit: alignment.fit,
         // Balance regional statistics with the observed cross-section so a
         // visibly unrelated profile cannot rank highly merely because four
         // summary values happen to agree.
@@ -202,7 +205,11 @@ function profileShapeSimilarity(a: number[], b: number[]) {
   return Math.exp(-rmse / 0.75) * 100;
 }
 
-export function alignProfile(target: number[], wider: number[]) {
+export function alignProfile(
+  target: number[],
+  wider: number[],
+  requireFit = false,
+) {
   if (target.length < 3 || wider.length < target.length)
     throw new Error("Profiles cannot be aligned.");
   const centeredStart = Math.floor((wider.length - target.length) / 2);
@@ -210,9 +217,16 @@ export function alignProfile(target: number[], wider: number[]) {
   // the 5-degree global screen is a high-resolution exhaustive search.
   const maxShiftSamples = Math.min(5, centeredStart);
   let best = {
-    similarity: -1,
+    similarity: profileShapeSimilarity(
+      target,
+      wider.slice(centeredStart, centeredStart + target.length),
+    ),
     profile: wider.slice(centeredStart, centeredStart + target.length),
     eastShiftKm: 0,
+    fit: compareProfiles(
+      target,
+      wider.slice(centeredStart, centeredStart + target.length),
+    ),
   };
   for (
     let start = centeredStart - maxShiftSamples;
@@ -221,12 +235,87 @@ export function alignProfile(target: number[], wider: number[]) {
   ) {
     const profile = wider.slice(start, start + target.length);
     const similarity = profileShapeSimilarity(target, profile);
-    if (similarity > best.similarity)
+    const fit = compareProfiles(target, profile);
+    // Require physical elevation agreement, not only standardized shape.
+    const better = requireFit
+      ? (fit.passes && !best.fit.passes) ||
+        (fit.passes === best.fit.passes &&
+          (fit.rmseM < best.fit.rmseM ||
+            (fit.rmseM === best.fit.rmseM &&
+              Math.abs(start - centeredStart) * 10 <
+                Math.abs(best.eastShiftKm))))
+      : similarity > best.similarity ||
+        (similarity === best.similarity &&
+          Math.abs(start - centeredStart) * 10 < Math.abs(best.eastShiftKm));
+    if (better)
       best = {
         similarity,
         profile,
         eastShiftKm: (start - centeredStart) * 10,
+        fit,
       };
   }
   return best;
+}
+
+export const PROFILE_FIT_LIMITS = {
+  minCorrelation: 0.9,
+  minAmplitudeRatio: 0.75,
+  maxAmplitudeRatio: 1.25,
+  maxNormalizedRmse: 0.35,
+  maxNormalizedError: 0.75,
+  flatToleranceM: 25,
+} as const;
+export function compareProfiles(target: number[], other: number[]) {
+  if (
+    target.length < 3 ||
+    target.length !== other.length ||
+    [...target, ...other].some((v) => !Number.isFinite(v))
+  )
+    throw Error("Invalid comparison profiles.");
+  const center = (v: number[]) => {
+    const mean = v.reduce((s, z) => s + z, 0) / v.length;
+    return v.map((z) => z - mean);
+  };
+  const a = center(target),
+    b = center(other),
+    n = a.length;
+  const targetStd = Math.sqrt(a.reduce((s, z) => s + z * z, 0) / n),
+    otherStd = Math.sqrt(b.reduce((s, z) => s + z * z, 0) / n);
+  const errors = a.map((z, i) => z - b[i]);
+  const rmseM = Math.sqrt(errors.reduce((s, z) => s + z * z, 0) / n),
+    maxErrorM = Math.max(...errors.map(Math.abs));
+  const correlation =
+    targetStd > 0 && otherStd > 0
+      ? Math.max(
+          -1,
+          Math.min(
+            1,
+            a.reduce((s, z, i) => s + z * b[i], 0) / n / targetStd / otherStd,
+          ),
+        )
+      : null;
+  const amplitudeRatio = targetStd > 0 ? otherStd / targetStd : null;
+  const normalizedRmse =
+    rmseM / Math.max(PROFILE_FIT_LIMITS.flatToleranceM, targetStd);
+  const flat = targetStd < PROFILE_FIT_LIMITS.flatToleranceM;
+  const passes = flat
+    ? otherStd <= PROFILE_FIT_LIMITS.flatToleranceM &&
+      rmseM <= PROFILE_FIT_LIMITS.flatToleranceM &&
+      maxErrorM <= 2 * PROFILE_FIT_LIMITS.flatToleranceM
+    : correlation !== null &&
+      correlation >= PROFILE_FIT_LIMITS.minCorrelation &&
+      amplitudeRatio !== null &&
+      amplitudeRatio >= PROFILE_FIT_LIMITS.minAmplitudeRatio &&
+      amplitudeRatio <= PROFILE_FIT_LIMITS.maxAmplitudeRatio &&
+      normalizedRmse <= PROFILE_FIT_LIMITS.maxNormalizedRmse &&
+      maxErrorM <= PROFILE_FIT_LIMITS.maxNormalizedError * targetStd;
+  return {
+    passes,
+    rmseM,
+    maxErrorM,
+    normalizedRmse,
+    correlation,
+    amplitudeRatio,
+  };
 }

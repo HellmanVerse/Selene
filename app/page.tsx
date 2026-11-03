@@ -752,6 +752,8 @@ export default function Home() {
                   {analysis.candidateCount} regions screened. Ranked by 70%
                   shape and 30% conditions, using planetary defaults when
                   regional evidence is missing.
+                  {analysis.profileRequirement?.required &&
+                    ` Only Earth profiles passing the lunar graph-fit requirement are eligible (${analysis.profileRequirement.qualifiedCount} found).`}
                 </p>
               </div>
               <button
@@ -797,6 +799,20 @@ export default function Home() {
                   <span className="mono">TOP EARTH CANDIDATES</span>
                   <span className="mono">WEIGHTED ANALOGS</span>
                 </div>
+                {analysis.profileRequirement?.required &&
+                  analysis.candidates.length === 0 && (
+                    <div className="no-profile-match" role="status">
+                      <h3>No close profile match found</h3>
+                      <p>
+                        None of the {analysis.candidateCount} Earth regions
+                        screened matches this lunar cross-section closely enough
+                        in both shape and elevation variation. Try a different
+                        lunar location or region radius. This search is
+                        incomplete; a suitable location may exist outside the
+                        current Earth index.
+                      </p>
+                    </div>
+                  )}
                 {analysis.candidates.map((c, i) => (
                   <button
                     className={`candidate ${selected === i ? "selected" : ""}`}
@@ -1260,6 +1276,18 @@ export default function Home() {
                 <br />
                 score = 0.7 × profile shape similarity + 0.3 × conditions
               </div>
+              {!mars && (
+                <p>
+                  Moon matching first requires close agreement of the sampled
+                  elevation profiles in shape and height variation. A
+                  correlation of at least 0.90, elevation-spread ratio of
+                  0.75–1.25, normalized RMS error at most 0.35, and maximum
+                  point error at most 0.75 of the lunar spread are required.
+                  Nearly flat profiles use a 25 m tolerance. These are research
+                  tolerances, not exact equality. The 70/30 ranking applies only
+                  after passing this requirement.
+                </p>
+              )}
               {
                 <p>
                   Overall ranking uses 70% profile shape similarity + 30%
@@ -1395,6 +1423,22 @@ export default function Home() {
                 </tbody>
               </table>
               <h3>Why this candidate ranked here</h3>
+              {analysis.profileRequirement?.required &&
+                candidate.profileFit && (
+                  <p>
+                    Graph fit passed · mean-centered elevation RMS error{" "}
+                    {number(candidate.profileFit.rmseM)} m ·{" "}
+                    {candidate.profileFit.correlation === null
+                      ? "near-flat profile"
+                      : `correlation ${candidate.profileFit.correlation.toFixed(3)}`}{" "}
+                    · elevation-spread ratio{" "}
+                    {candidate.profileFit.amplitudeRatio === null
+                      ? "near-flat"
+                      : candidate.profileFit.amplitudeRatio.toFixed(2)}
+                    . Other conditions only rank candidates that pass this
+                    requirement.
+                  </p>
+                )}
               {candidate.analog && (
                 <div className="analog-breakdown">
                   <p>
