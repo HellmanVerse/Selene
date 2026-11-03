@@ -1,12 +1,17 @@
+import { useId } from "react";
 export default function Profile({
   values,
   other,
   large = false,
+  mars = false,
 }: {
   values: number[];
   other?: number[];
   large?: boolean;
+  mars?: boolean;
 }) {
+  const gradientId = useId(),
+    color = mars ? "#c96b4b" : "#d1ff72";
   const relative = (v: number[]) => {
       if (!other) return v;
       const mean = v.reduce((sum, z) => sum + z, 0) / v.length;
@@ -33,9 +38,9 @@ export default function Profile({
         aria-label="West to east elevation profile in meters"
       >
         <defs>
-          <linearGradient id="profile-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#d1ff72" stopOpacity=".22" />
-            <stop offset="100%" stopColor="#d1ff72" stopOpacity="0" />
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity=".22" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
           </linearGradient>
         </defs>
         {[25, 63, 101, 140].map((y) => (
@@ -51,14 +56,9 @@ export default function Profile({
         ))}
         <path
           d={`${path(primary)} L600,160 L0,160 Z`}
-          fill="url(#profile-fill)"
+          fill={`url(#${gradientId})`}
         />
-        <path
-          d={path(primary)}
-          fill="none"
-          stroke="#d1ff72"
-          strokeWidth="1.7"
-        />
+        <path d={path(primary)} fill="none" stroke={color} strokeWidth="1.7" />
         {secondary && (
           <path
             d={path(secondary)}

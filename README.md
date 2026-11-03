@@ -20,6 +20,8 @@ All baseline assets are checked in. A fresh install does **not** download a glob
 
 ## Scientific method
 
+Mars analog factors: the location evidence section provides cited regional context for all 13 Mars landmarks and four Earth references (Atacama, Askja, Mauna Kea and Haughton). Mars ranking is fixed at 60% standardized profile-shape similarity and 40% other-factor evidence. Adjustable priorities divide only that 40%; missing evidence earns zero credit and is not transferred to shape. With all other priorities zero, that 40% stays unallocated. Available comparisons appear as cards; unavailable factors are grouped in one expandable box. The curated literature is not a mineral, climate, ice-depth or cave raster extraction. Full settings, sources, coverage and score contributions are included in JSON reports. Mars profiles and legends use soil red; lunar profiles retain their original color.
+
 - Coordinate system: lunar Mean Earth / Polar Axis DE421, east-positive. Input longitude −180…360, normalized to −180…180. Latitude −90…90.
 - Product: LDEM_16 v3.1, 5,760 × 2,880, little-endian signed int16, multiply DN by 0.5 for elevation meters relative to a sphere of radius 1,737,400 m. Raw label and SHA-256 are preserved in `data/`.
 - Acquisition: 2009-07-13 through 2016-11-29. Product creation: 2019-03-15. Native spacing: 1,895.21 m N–S, latitude-dependent E–W. All 16,588,800 grid cells are valid. This is grid validity, **not** direct laser footprint coverage. Interpolation and 45-degree band boundary artifacts remain possible.

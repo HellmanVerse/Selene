@@ -25,6 +25,11 @@ import {
 import { locations as moonLocations } from "@/lib/locations";
 import { marsLocations } from "@/lib/mars-locations";
 import AnalogEvidence from "@/components/AnalogEvidence";
+import {
+  defaultAnalogWeights,
+  factorLabels,
+  type AnalogWeights,
+} from "@/lib/analog";
 import type { Analysis, Weights, Match } from "@/lib/types";
 import Profile from "@/components/Profile";
 import { coordinates } from "@/lib/terrain";
@@ -118,6 +123,8 @@ export default function Home() {
   const mars = body === "mars",
     bodyName = mars ? "Mars" : "Moon";
   const locations = mars ? marsLocations : moonLocations;
+  const [analogWeights, setAnalogWeights] =
+    useState<AnalogWeights>(defaultAnalogWeights);
   const [lat, setLat] = useState(-43.31),
     [lon, setLon] = useState(-11.36),
     [latInput, setLatInput] = useState("-43.31"),
@@ -158,7 +165,10 @@ export default function Home() {
       Math.abs(analysis.lat - draft.lat) > 1e-8 ||
       Math.abs(analysis.lon - draft.lon) > 1e-8 ||
       analysis.radius !== radius ||
-      JSON.stringify(analysis.weights) !== JSON.stringify(weights));
+      JSON.stringify(analysis.weights) !== JSON.stringify(weights) ||
+      (mars &&
+        JSON.stringify(analysis.analogWeights) !==
+          JSON.stringify(analogWeights)));
   useEffect(() => {
     if (modal) {
       dialog.current?.showModal();
@@ -214,7 +224,13 @@ export default function Home() {
         const response = await fetch("/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...point, radius, weights, body }),
+          body: JSON.stringify({
+            ...point,
+            radius,
+            weights,
+            body,
+            analogWeights,
+          }),
           signal: abort.signal,
         });
         const data = await response.json();
@@ -241,7 +257,7 @@ export default function Home() {
         if (id === request.current) setBusy(false);
       }
     },
-    [latInput, lonInput, radius, weights, body, locations],
+    [latInput, lonInput, radius, weights, body, locations, analogWeights],
   );
   useEffect(() => {
     setBusy(true);
@@ -269,7 +285,7 @@ export default function Home() {
             ...analysis,
             sources: sourceLinks,
             method:
-              "metrics-v1; spherical local grids; 10 km comparison; exponential weighted absolute differences",
+              "metrics-v3; 10 km comparison; Mars overall = 0.6 * profile shape similarity + 0.4 * weighted other-factor evidence; missing evidence contributes zero; non-terrain traits use cited regional context",
           },
           null,
           2,
@@ -633,54 +649,59 @@ export default function Home() {
                   ? `Measured automatically · NASA ${mars ? "MOLA · 3.705" : "LOLA · 1.895"} km grid`
                   : "Enter a valid location to gather terrain data."}
             </p>
-            <details className="advanced-mission">
-              <summary>
-                Advanced matching preferences <span>Optional</span>
-                <ChevronDown size={13} />
-              </summary>
-              <p>
-                These settings change the importance of each characteristic when
-                ranking Earth matches. They do not enter or change the measured
-                terrain values.
-              </p>
-              <select
-                aria-label="Mission preset"
-                value={mission}
-                onChange={(e) => {
-                  const m = e.target.value;
-                  setMission(m);
-                  if (presets[m]) setWeights(presets[m]);
-                }}
-              >
-                {Object.keys(presets).map((k) => (
-                  <option key={k}>{k}</option>
-                ))}
-                <option>Custom weights</option>
-              </select>
-              <div className="weights">
-                {(Object.keys(weights) as (keyof Weights)[]).map((k) => (
-                  <label key={k}>
-                    <span>
-                      {k === "std"
-                        ? "Elevation variation"
-                        : k[0].toUpperCase() + k.slice(1)}
-                      <b className="mono">{weights[k]}</b>
-                    </span>
-                    <input
-                      aria-label={`${k} matching importance`}
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={weights[k]}
-                      onChange={(e) => {
-                        setMission("Custom weights");
-                        setWeights({ ...weights, [k]: Number(e.target.value) });
-                      }}
-                    />
-                  </label>
-                ))}
-              </div>
-            </details>
+            {!mars && (
+              <details className="advanced-mission">
+                <summary>
+                  Advanced matching preferences <span>Optional</span>
+                  <ChevronDown size={13} />
+                </summary>
+                <p>
+                  These settings change the importance of each characteristic
+                  when ranking Earth matches. They do not enter or change the
+                  measured terrain values.
+                </p>
+                <select
+                  aria-label="Mission preset"
+                  value={mission}
+                  onChange={(e) => {
+                    const m = e.target.value;
+                    setMission(m);
+                    if (presets[m]) setWeights(presets[m]);
+                  }}
+                >
+                  {Object.keys(presets).map((k) => (
+                    <option key={k}>{k}</option>
+                  ))}
+                  <option>Custom weights</option>
+                </select>
+                <div className="weights">
+                  {(Object.keys(weights) as (keyof Weights)[]).map((k) => (
+                    <label key={k}>
+                      <span>
+                        {k === "std"
+                          ? "Elevation variation"
+                          : k[0].toUpperCase() + k.slice(1)}
+                        <b className="mono">{weights[k]}</b>
+                      </span>
+                      <input
+                        aria-label={`${k} matching importance`}
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={weights[k]}
+                        onChange={(e) => {
+                          setMission("Custom weights");
+                          setWeights({
+                            ...weights,
+                            [k]: Number(e.target.value),
+                          });
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
           <div className="ready-panel">
             <div className="panel-heading">
@@ -768,8 +789,10 @@ export default function Home() {
                 </div>
                 <h2>Earth, through a {mars ? "Martian" : "lunar"} lens.</h2>
                 <p>
-                  {analysis.candidateCount} regions screened. Ranked by measured
-                  topography at a shared 10 km spacing.
+                  {analysis.candidateCount} regions screened.{" "}
+                  {mars
+                    ? "Ranked by your terrain and location-evidence priorities. Evidence coverage is shown for each result."
+                    : "Ranked by measured topography at a shared 10 km spacing."}
                 </p>
               </div>
               <button
@@ -813,7 +836,9 @@ export default function Home() {
               <div className="candidate-list">
                 <div className="panel-heading">
                   <span className="mono">TOP EARTH CANDIDATES</span>
-                  <span className="mono">MORPHOLOGY</span>
+                  <span className="mono">
+                    {mars ? "WEIGHTED ANALOGS" : "MORPHOLOGY"}
+                  </span>
                 </div>
                 {analysis.candidates.map((c, i) => (
                   <button
@@ -831,6 +856,8 @@ export default function Home() {
                           ? "Reference location"
                           : "Global screen · outside reference catalog"}{" "}
                         · {number(c.resolution / 1000, 1)} km tile spacing
+                        {c.analog &&
+                          ` · ${c.analog.coverage.toFixed(0)}% weighted evidence coverage`}
                       </small>
                     </span>
                     <span className="score mono">
@@ -916,12 +943,13 @@ export default function Home() {
                 {surface ? (
                   <TerrainMesh grid={analysis.grid} />
                 ) : (
-                  <Profile values={analysis.metrics.profile} />
+                  <Profile values={analysis.metrics.profile} mars={mars} />
                 )}
                 <p className="small-note">
                   West–east transect through the analysis center. {bodyName}
-                  elevations are relative to a 1,737.4 km sphere. Native raster
-                  extraction uses nearest neighbors.
+                  elevations are relative to{" "}
+                  {mars ? "the GMM3 Martian areoid" : "a 1,737.4 km sphere"}.
+                  Native raster extraction uses nearest neighbors.
                 </p>
               </div>
               <div className="slope-panel">
@@ -973,7 +1001,16 @@ export default function Home() {
             </details>
           </section>
         )}
-        <AnalogEvidence body={body} candidate={candidate} />
+        <AnalogEvidence
+          body={body}
+          lat={draft?.lat ?? lat}
+          lon={draft?.lon ?? lon}
+          analysis={stale ? null : analysis}
+          candidate={stale ? undefined : candidate}
+          weights={analogWeights}
+          onWeights={setAnalogWeights}
+          busy={busy || stale}
+        />
         {!analysis && (
           <section className="explainer">
             <div className="eyebrow mono">SAME SHAPES. DIFFERENT WORLDS.</div>
@@ -1263,8 +1300,22 @@ export default function Home() {
               <div className="formula mono">
                 sᵢ = 100 × exp(−|earthᵢ − moonᵢ| / scaleᵢ)
                 <br />
-                score = 0.5 × regional similarity + 0.5 × profile similarity
+                {mars
+                  ? "score = 0.6 × profile shape similarity + 0.4 × other-factor evidence"
+                  : "score = 0.5 × regional similarity + 0.5 × profile similarity"}
               </div>
+              {mars && (
+                <p>
+                  Mars overall ranking uses 60% profile shape similarity + 40%
+                  weighted other-factor evidence. Priorities divide only the
+                  other 40%. Non-terrain evidence scores count documented shared
+                  traits from cited regional literature. Missing evidence
+                  contributes zero, and the result shows the fraction of
+                  requested importance supported by evidence. This favors
+                  documented candidates, so a low score can indicate missing
+                  research rather than a poor physical analog.
+                </p>
+              )}
               <p>
                 Reference scales: slope 3°, relief 3,000 m, roughness 600 m,
                 elevation standard deviation 1,000 m. These are transparent
@@ -1306,13 +1357,14 @@ export default function Home() {
               </p>
               <div className="compare-profile">
                 <Profile
+                  mars={mars}
                   values={analysis.comparison.profile}
                   other={candidate.alignedProfile}
                   large
                 />
                 <div className="legend">
                   <span>
-                    <i />
+                    <i style={mars ? { background: "#c96b4b" } : undefined} />
                     {bodyName} · NASA {mars ? "MOLA" : "LOLA"}
                   </span>
                   <span>
@@ -1385,6 +1437,49 @@ export default function Home() {
                 </tbody>
               </table>
               <h3>Why this candidate ranked here</h3>
+              {candidate.analog && (
+                <div className="analog-breakdown">
+                  <p>
+                    Overall analog score {candidate.score.toFixed(1)} / 100 ·
+                    weighted evidence coverage{" "}
+                    {candidate.analog.coverage.toFixed(0)}%. Shape similarity{" "}
+                    {candidate.profileSimilarity.toFixed(1)} / 100.
+                  </p>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Factor</th>
+                        <th>Importance</th>
+                        <th>Evidence score</th>
+                        <th>Points</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {candidate.analog.factors.map((f) => (
+                        <tr key={f.key}>
+                          <td>{factorLabels[f.key]}</td>
+                          <td>
+                            {f.key === "terrain"
+                              ? "60% fixed"
+                              : `${analysis.analogWeights?.[f.key] ?? 0} within other 40%`}
+                          </td>
+                          <td>
+                            {f.score === null
+                              ? "Missing evidence"
+                              : f.score.toFixed(1)}
+                          </td>
+                          <td>{f.contribution.toFixed(1)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="small-note">
+                    Non-terrain scores reflect cited regional shared traits.
+                    They are not extracted physical measurements. Edit
+                    priorities in the location factors section.
+                  </p>
+                </div>
+              )}
               <div className="similarities">
                 <div>
                   <span>Profile shape</span>
@@ -1416,7 +1511,9 @@ export default function Home() {
                 Absolute lunar and terrestrial elevations use different datums
                 and are mean-centered in the graph. Absolute elevation does not
                 contribute to the score; the measured profile shape does.
-                Environmental and material similarity: unavailable.
+                {mars
+                  ? "Other factors contribute only where cited regional evidence is registered on both sides."
+                  : "Environmental and material similarity: unavailable."}
               </p>
               <button
                 className="button primary"

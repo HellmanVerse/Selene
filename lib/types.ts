@@ -1,3 +1,4 @@
+import type { AnalogWeights, FactorResult, SiteEvidence } from "./analog";
 export type Metrics = {
   min: number;
   max: number;
@@ -27,6 +28,8 @@ export type Candidate = {
   metrics: Record<string, Metrics>;
 };
 export type Match = Candidate & {
+  terrainScore?: number;
+  analog?: { factors: FactorResult[]; coverage: number; earth?: SiteEvidence };
   score: number;
   similarity: Weights;
   differences: Weights;
@@ -35,6 +38,8 @@ export type Match = Candidate & {
   eastShiftKm: number;
 };
 export type Analysis = {
+  analogWeights?: AnalogWeights;
+  targetEvidence?: SiteEvidence;
   body: "moon" | "mars";
   lat: number;
   lon: number;

@@ -3,6 +3,12 @@ import { readFile } from "node:fs/promises";
 import { extract } from "@/lib/lola";
 import { coordinates, metrics, rank } from "@/lib/terrain";
 import type { Candidate, Weights } from "@/lib/types";
+import {
+  defaultAnalogWeights,
+  targetEvidence,
+  validateAnalogWeights,
+  weightAnalogs,
+} from "@/lib/analog";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const candidateData = readFile(
@@ -19,6 +25,9 @@ export async function POST(req: NextRequest) {
     if (body.body && !["moon", "mars"].includes(body.body))
       throw new Error("Choose Moon or Mars.");
     const mars = body.body === "mars";
+    const analogWeights = mars
+      ? validateAnalogWeights(body.analogWeights ?? defaultAnalogWeights)
+      : defaultAnalogWeights;
     if (typeof body.lat !== "number" || typeof body.lon !== "number")
       throw new Error("Coordinates must be numeric.");
     const { lat, lon } = coordinates(body.lat, body.lon),
@@ -49,7 +58,13 @@ export async function POST(req: NextRequest) {
     ]);
     const measured = metrics(native.grid, native.spacing),
       comparison = metrics(coarse.grid, 10000);
-    const matches = rank(comparison, candidates, radius, weights).slice(0, 12);
+    const context = targetEvidence(mars ? "mars" : "moon", lat, lon);
+    const terrainMatches = rank(comparison, candidates, radius, weights);
+    const matches = (
+      mars
+        ? weightAnalogs(terrainMatches, context, analogWeights)
+        : terrainMatches
+    ).slice(0, 12);
     // Downsample the display mesh only; metrics use the full native extraction.
     const step = Math.max(1, Math.floor(native.grid.length / 51));
     const grid = native.grid
@@ -61,6 +76,8 @@ export async function POST(req: NextRequest) {
       lon,
       radius,
       weights,
+      analogWeights: mars ? analogWeights : undefined,
+      targetEvidence: context,
       metrics: measured,
       comparison,
       candidates: matches,
@@ -70,8 +87,9 @@ export async function POST(req: NextRequest) {
       grid,
       spacing: native.spacing,
       created: new Date().toISOString(),
-      version: "0.2.0",
+      version: "0.3.1",
       limitations: [
+        "Mars analog scores combine measured terrain with a curated shared-trait rubric. Other factors use cited regional literature, not pixel-level mineral, climate or ice extraction. Missing evidence earns no score; weighted evidence coverage is shown. Four Earth reference regions currently have curated non-terrain evidence. Other global screening candidates retain terrain evidence only.",
         ...(mars
           ? [
               "MOLA MEGDR v2 uses IAU2000 planetocentric east-positive coordinates and areoid-relative meter elevations. 16 pixels/degree corresponds to 3.705 km north–south spacing. Gaps are interpolated; equatorial shot coverage is approximately 55%. Thermal, ice, mineralogy and atmospheric layers are research references, not measured analog scores.",
