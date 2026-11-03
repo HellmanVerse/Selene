@@ -28,14 +28,6 @@ export type Candidate = {
   metrics: Record<string, Metrics>;
 };
 export type Match = Candidate & {
-  profileFit?: {
-    passes: boolean;
-    rmseM: number;
-    maxErrorM: number;
-    normalizedRmse: number;
-    correlation: number | null;
-    amplitudeRatio: number | null;
-  };
   terrainScore?: number;
   analog?: { factors: FactorResult[]; coverage: number; earth?: SiteEvidence };
   score: number;
@@ -46,14 +38,6 @@ export type Match = Candidate & {
   eastShiftKm: number;
 };
 export type Analysis = {
-  closestProfile?: Match;
-  profileRequirement?: {
-    required: boolean;
-    qualifiedCount: number;
-    screenedCount: number;
-    bestRmseM: number;
-    limits: Record<string, number>;
-  };
   analogWeights?: AnalogWeights;
   targetEvidence?: SiteEvidence;
   body: "moon" | "mars";

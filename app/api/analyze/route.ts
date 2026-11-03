@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import { extract } from "@/lib/lola";
-import { coordinates, metrics, rank, PROFILE_FIT_LIMITS } from "@/lib/terrain";
+import { coordinates, metrics, rank } from "@/lib/terrain";
 import type { Candidate, Weights } from "@/lib/types";
 import {
   defaultAnalogWeights,
@@ -59,25 +59,11 @@ export async function POST(req: NextRequest) {
     const measured = metrics(native.grid, native.spacing),
       comparison = metrics(coarse.grid, 10000);
     const context = targetEvidence(mars ? "mars" : "moon", lat, lon);
-    const terrainMatches = rank(comparison, candidates, radius, weights, !mars);
-    const eligibleMatches = mars
-      ? terrainMatches
-      : terrainMatches.filter((c) => c.profileFit?.passes);
-    const matches = weightAnalogs(
-      eligibleMatches,
-      context,
-      analogWeights,
-    ).slice(0, 12);
-    const closestProfile =
-      !mars && matches.length === 0
-        ? weightAnalogs(
-            terrainMatches
-              .toSorted((a, b) => a.profileFit!.rmseM - b.profileFit!.rmseM)
-              .slice(0, 1),
-            context,
-            analogWeights,
-          )[0]
-        : undefined;
+    const terrainMatches = rank(comparison, candidates, radius, weights);
+    const matches = weightAnalogs(terrainMatches, context, analogWeights).slice(
+      0,
+      12,
+    );
     // Downsample the display mesh only; metrics use the full native extraction.
     const step = Math.max(1, Math.floor(native.grid.length / 51));
     const grid = native.grid
@@ -94,31 +80,14 @@ export async function POST(req: NextRequest) {
       metrics: measured,
       comparison,
       candidates: matches,
-      closestProfile,
       candidateCount: candidates.length,
-      profileRequirement: !mars
-        ? {
-            required: true,
-            qualifiedCount: eligibleMatches.length,
-            screenedCount: candidates.length,
-            bestRmseM: Math.min(
-              ...terrainMatches.map((c) => c.profileFit!.rmseM),
-            ),
-            limits: PROFILE_FIT_LIMITS,
-          }
-        : undefined,
       source,
       coverage: 100,
       grid,
       spacing: native.spacing,
       created: new Date().toISOString(),
-      version: "0.4.2",
+      version: "0.4.3",
       limitations: [
-        ...(!mars
-          ? [
-              "Moon candidates must pass a mean-centered profile fit before condition ranking: correlation at least 0.90, elevation spread ratio 0.75–1.25, RMS error at most 0.35 of lunar profile spread, and maximum point error at most 0.75 of that spread. Nearly flat profiles use a 25 m tolerance. These heuristic tolerances establish a close sampled cross-section, not an exact match or a validated 2D terrain analog. No candidate is returned if none pass.",
-            ]
-          : []),
         "Scores use 70% profile shape and 30% conditions. Planetary defaults fill missing Moon/Mars context; regional evidence takes precedence for scoring. Earth-wide atmosphere, wind and daylight context applies to all candidates; local rock type, temperature and resources are never inferred from Earth-wide facts. Missing or context-only comparisons earn no credit. Sources and scope are included in reports.",
         ...(mars
           ? [
