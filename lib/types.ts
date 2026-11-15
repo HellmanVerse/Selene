@@ -1,4 +1,4 @@
-import type { AnalogWeights, FactorResult, SiteEvidence } from "./analog";
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíã~¢Ö¥¢ëiºÙbë5import type { AnalogWeights, FactorResult, SiteEvidence } from "./analog";
 export type Metrics = {
   min: number;
   max: number;
@@ -11,38 +11,7 @@ export type Metrics = {
   roughness: number;
   ruggedness: number;
   histogram: number[];
-  profile: number[];
-};
-export type Weights = {
-  slope: number;
-  relief: number;
-  roughness: number;
-  std: number;
-};
-export type Candidate = {
-  name: string;
-  lat: number;
-  lon: number;
-  catalog: boolean;
-  resolution: number;
-  metrics: Record<string, Metrics>;
-};
-export type Match = Candidate & {
-  terrainScore?: number;
-  analog?: { factors: FactorResult[]; coverage: number; earth?: SiteEvidence };
-  score: number;
-  similarity: Weights;
-  differences: Weights;
-  profileSimilarity: number;
-  alignedProfile: number[];
-  eastShiftKm: number;
-};
-export type Analysis = {
-  analogWeights?: AnalogWeights;
-  targetEvidence?: SiteEvidence;
-  body: "moon" | "mars";
-  lat: number;
-  lon: number;
+ Û~-¢G§²ÚîÆ­yİber;
   radius: number;
   metrics: Metrics;
   comparison: Metrics;
@@ -57,3 +26,4 @@ export type Analysis = {
   weights: Weights;
   version: string;
 };
+

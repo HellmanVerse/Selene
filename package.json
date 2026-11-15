@@ -1,4 +1,4 @@
-{
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíÛ¢Ö¥¢ëiºÙbë5{
   "name": "torsion-selene",
   "version": "0.1.0",
   "private": true,
@@ -10,21 +10,4 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "geist": "1.8.2",
-    "lucide-react": "1.62.0",
-    "next": "16.4.3",
-    "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "three": "0.186.1"
-  },
-  "devDependencies": {
-    "@types/node": "26.6.5",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "@types/three": "0.186.0",
-    "prettier": "^3.9.10",
-    "tsx": "4.23.15",
-    "typescript": "7.0.2"
-  },
-  "packageManager": "pnpm@11.25.0"
-}
+ãKh‘éì¶»§q«^tËŒH‹ˆ™YHˆŒŒN‹ŒH‚ˆKˆ™]‘\[™[˜ÚY\ÈˆÂˆ\\ËÛ›ÙHˆŒ‹‹H‹ˆ\\ËÜ™XXİˆŒNKŒËŒ‹ˆ\\ËÜ™XXİYÛHˆŒNKŒËŒ‹ˆ\\Ëİ™YHˆŒŒN‹Œ‹ˆœ™]Y\ˆˆ—ŒËKŒL‹ˆŞˆŒŒËŒMH‹ˆ\\ØÜš\ˆËŒŒˆ‚ˆKˆœXÚØYÙSX[˜YÙ\ˆˆœœPLKŒKŒ‚ŸB‚

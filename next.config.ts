@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíÛ~“¢Ö¥¢ëiºÙbë5import type { NextConfig } from "next";
 const config: NextConfig = {
   outputFileTracingIncludes: {
     "/api/analyze": [
@@ -8,19 +8,5 @@ const config: NextConfig = {
       "./data/mola-metadata.json",
       "./data/earth-candidates.json",
     ],
-  },
-  outputFileTracingExcludes: { "*": ["./data/raw/**/*"] },
-  async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "X-Frame-Options", value: "DENY" },
-        ],
-      },
-    ];
-  },
-};
-export default config;
+  }ß«h‘éì¶»§q«^tÛİ\˜ÙNˆ‹Îœ]
+ˆ‹ˆXY\œÎˆÂˆÈÙ^Nˆ–PÛÛ[U\KSÜ[ÛœÈ‹˜[YNˆ››ÜÛšY™ˆˆKˆÈÙ^Nˆ”™Y™\œ™\‹TÛXŞH‹˜[YNˆœİšXİ[ÜšYÚ[‹]Ú[‹XÜ›ÜÜË[ÜšYÚ[ˆˆKˆÈÙ^Nˆ–Qœ˜[YKSÜ[ÛœÈ‹˜[YNˆ‘S–HˆKˆKˆKˆNÂˆKŸNÂ™^ÜY˜][ÛÛ™šYÎÂ‚
